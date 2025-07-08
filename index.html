@@ -121,6 +121,7 @@
             const [showProjectModal, setShowProjectModal] = useState(false);
             const [templateName, setTemplateName] = useState('');
             const [projectName, setProjectName] = useState('');
+            const [currentProject, setCurrentProject] = useState(null); // NEW: Track current loaded project
             const fileInputRef = useRef(null);
 
             // Load saved data on component mount
@@ -297,6 +298,38 @@
                 }
             };
 
+            // NEW: Save changes to current project
+            const saveCurrentProject = () => {
+                if (!currentProject) return;
+
+                const updatedProject = {
+                    ...currentProject,
+                    collectionName,
+                    modes,
+                    variables: variables.map(v => ({
+                        name: v.name,
+                        charLimit: v.charLimit,
+                        values: { ...v.values }
+                    })),
+                    updatedAt: new Date().toLocaleDateString()
+                };
+
+                let updatedProjects;
+                if (currentProject.type === 'project') {
+                    updatedProjects = savedProjects.map(p => p.id === currentProject.id ? updatedProject : p);
+                    setSavedProjects(updatedProjects);
+                    localStorage.setItem('figma-projects', JSON.stringify(updatedProjects));
+                } else {
+                    // If it's a template, update templates
+                    updatedProjects = savedTemplates.map(t => t.id === currentProject.id ? updatedProject : t);
+                    setSavedTemplates(updatedProjects);
+                    localStorage.setItem('figma-templates', JSON.stringify(updatedProjects));
+                }
+
+                setCurrentProject(updatedProject);
+                alert(`${currentProject.type === 'template' ? 'Template' : 'Proyecto'} "${currentProject.name}" actualizado!`);
+            };
+
             // Save current configuration as template (STRUCTURE ONLY)
             const saveTemplate = () => {
                 if (!templateName.trim()) {
@@ -369,7 +402,7 @@
                     variables: variables.map(v => ({
                         name: v.name,
                         charLimit: v.charLimit,
-                        values: { ...v.values } // Keep all values
+                        values: { ...v.values }
                     })),
                     createdAt: existingProject ? existingProject.createdAt : new Date().toLocaleDateString(),
                     updatedAt: new Date().toLocaleDateString()
@@ -385,28 +418,35 @@
                 setSavedProjects(updatedProjects);
                 localStorage.setItem('figma-projects', JSON.stringify(updatedProjects));
                 
+                // NEW: Set this as current project
+                setCurrentProject(project);
+                
                 setProjectName('');
                 setShowProjectModal(false);
                 
                 alert(`Proyecto "${project.name}" ${existingProject ? 'actualizado' : 'guardado'} exitosamente!`);
             };
 
-            // Load template
-            const loadTemplate = (template) => {
-                setCollectionName(template.collectionName);
-                setModes(template.modes);
+            // Load template or project
+            const loadTemplate = (item) => {
+                setCollectionName(item.collectionName);
+                setModes(item.modes);
                 
-                const newVariables = template.variables.map((v, index) => ({
+                const newVariables = item.variables.map((v, index) => ({
                     ...v,
                     id: index.toString(),
-                    values: template.modes.reduce((acc, mode) => ({
+                    values: item.modes.reduce((acc, mode) => ({
                         ...acc,
                         [mode]: v.values[mode] || ''
                     }), {})
                 }));
                 
                 setVariables(newVariables);
-                alert(`${template.type === 'template' ? 'Template' : 'Proyecto'} "${template.name}" cargado!`);
+                
+                // NEW: Set current project/template
+                setCurrentProject(item);
+                
+                alert(`${item.type === 'template' ? 'Template' : 'Proyecto'} "${item.name}" cargado!`);
             };
 
             // Delete template or project
@@ -421,7 +461,21 @@
                         setSavedProjects(updatedProjects);
                         localStorage.setItem('figma-projects', JSON.stringify(updatedProjects));
                     }
+                    
+                    // NEW: Clear current project if it was deleted
+                    if (currentProject && currentProject.id === itemId) {
+                        setCurrentProject(null);
+                    }
                 }
+            };
+
+            // NEW: Start new project (clear current)
+            const startNew = () => {
+                if (currentProject) {
+                    const shouldContinue = confirm('¿Quieres empezar un nuevo proyecto? Los cambios no guardados se perderán.');
+                    if (!shouldContinue) return;
+                }
+                setCurrentProject(null);
             };
 
             // Import JSON
@@ -449,6 +503,7 @@
                         }));
                         
                         setVariables(newVariables);
+                        setCurrentProject(null); // NEW: Clear current project when importing
                         alert('JSON importado exitosamente!');
                     } catch (error) {
                         alert('Error al importar JSON: ' + error.message);
@@ -470,13 +525,33 @@
                         {/* Header */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
                             <div className="flex items-center justify-between mb-4">
-                                <input
-                                    type="text"
-                                    value={collectionName}
-                                    onChange={(e) => setCollectionName(e.target.value)}
-                                    className="text-2xl font-semibold text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1"
-                                />
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="text"
+                                        value={collectionName}
+                                        onChange={(e) => setCollectionName(e.target.value)}
+                                        className="text-2xl font-semibold text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1"
+                                    />
+                                    {/* NEW: Current project indicator */}
+                                    {currentProject && (
+                                        <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full text-sm text-blue-700">
+                                            <span>{currentProject.type === 'template' ? '📋' : '💾'}</span>
+                                            <span>Trabajando en: <strong>{currentProject.name}</strong></span>
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="flex gap-3">
+                                    {/* NEW: Save current project button */}
+                                    {currentProject && (
+                                        <button
+                                            onClick={saveCurrentProject}
+                                            className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                        >
+                                            <Save size={16} />
+                                            Guardar
+                                        </button>
+                                    )}
+                                    
                                     <button
                                         onClick={() => fileInputRef.current?.click()}
                                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
@@ -520,10 +595,11 @@
                                                         {allSavedItems.map(item => (
                                                             <div key={item.id} className={`flex items-center justify-between p-2 rounded text-xs ${
                                                                 item.type === 'template' ? 'bg-blue-50' : 'bg-green-50'
-                                                            }`}>
+                                                            } ${currentProject && currentProject.id === item.id ? 'ring-2 ring-blue-400' : ''}`}>
                                                                 <div>
                                                                     <div className="font-medium text-gray-900">
                                                                         {item.type === 'template' ? '📋' : '💾'} {item.name}
+                                                                        {currentProject && currentProject.id === item.id && <span className="text-blue-600"> (Activo)</span>}
                                                                     </div>
                                                                     <div className="text-gray-500">
                                                                         {item.type === 'template' ? 'Template' : 'Proyecto'} • {item.updatedAt ? `Act: ${item.updatedAt}` : item.createdAt}
@@ -704,7 +780,7 @@
                         </div>
 
                         <div className="mt-6 text-center text-sm text-gray-500">
-                            Editor de Variables de Texto para Figma v3.0 - Templates y Proyectos
+                            Editor de Variables de Texto para Figma v3.1 - Ahora con auto-save
                         </div>
 
                         {/* Template Save Modal */}
