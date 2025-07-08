@@ -89,6 +89,14 @@
             </svg>
         );
 
+        const Save = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17,21 17,13 7,13 7,21"></polyline>
+                <polyline points="7,3 7,8 15,8"></polyline>
+            </svg>
+        );
+
         const FigmaVariablesEditor = () => {
             const [collectionName, setCollectionName] = useState('Languages');
             const [modes, setModes] = useState(['SPA', 'POR', 'ENG']);
@@ -108,19 +116,27 @@
             const [draggedItem, setDraggedItem] = useState(null);
             const [editingLimit, setEditingLimit] = useState(null);
             const [savedTemplates, setSavedTemplates] = useState([]);
+            const [savedProjects, setSavedProjects] = useState([]);
             const [showTemplateModal, setShowTemplateModal] = useState(false);
+            const [showProjectModal, setShowProjectModal] = useState(false);
             const [templateName, setTemplateName] = useState('');
+            const [projectName, setProjectName] = useState('');
             const fileInputRef = useRef(null);
 
-            // Load saved templates on component mount
+            // Load saved data on component mount
             useEffect(() => {
-                const saved = localStorage.getItem('figma-templates');
-                if (saved) {
-                    setSavedTemplates(JSON.parse(saved));
+                const savedTemplatesData = localStorage.getItem('figma-templates');
+                if (savedTemplatesData) {
+                    setSavedTemplates(JSON.parse(savedTemplatesData));
+                }
+                
+                const savedProjectsData = localStorage.getItem('figma-projects');
+                if (savedProjectsData) {
+                    setSavedProjects(JSON.parse(savedProjectsData));
                 }
             }, []);
 
-            // Check if field is empty (for red border) - IMPROVED VERSION
+            // Check if field is empty (for red border)
             const isFieldEmpty = (value) => {
                 return !value || value.toString().trim() === '' || value === null || value === undefined;
             };
@@ -281,14 +297,13 @@
                 }
             };
 
-            // Save current configuration as template
+            // Save current configuration as template (STRUCTURE ONLY)
             const saveTemplate = () => {
                 if (!templateName.trim()) {
                     alert('Por favor ingresa un nombre para el template');
                     return;
                 }
 
-                // Check if template with same name exists
                 const existingTemplate = savedTemplates.find(t => t.name === templateName);
                 
                 if (existingTemplate) {
@@ -301,6 +316,7 @@
                 const template = {
                     id: existingTemplate ? existingTemplate.id : Date.now().toString(),
                     name: templateName,
+                    type: 'template',
                     collectionName,
                     modes,
                     variables: variables.map(v => ({
@@ -314,10 +330,8 @@
 
                 let updatedTemplates;
                 if (existingTemplate) {
-                    // Replace existing template
                     updatedTemplates = savedTemplates.map(t => t.id === existingTemplate.id ? template : t);
                 } else {
-                    // Add new template
                     updatedTemplates = [...savedTemplates, template];
                 }
 
@@ -327,11 +341,54 @@
                 setTemplateName('');
                 setShowTemplateModal(false);
                 
-                if (existingTemplate) {
-                    alert(`Template "${template.name}" actualizado exitosamente!`);
-                } else {
-                    alert(`Template "${template.name}" guardado exitosamente!`);
+                alert(`Template "${template.name}" ${existingTemplate ? 'actualizado' : 'guardado'} exitosamente!`);
+            };
+
+            // Save current state as project (WITH ALL VALUES)
+            const saveProject = () => {
+                if (!projectName.trim()) {
+                    alert('Por favor ingresa un nombre para el proyecto');
+                    return;
                 }
+
+                const existingProject = savedProjects.find(p => p.name === projectName);
+                
+                if (existingProject) {
+                    const shouldOverwrite = confirm(`Ya existe un proyecto llamado "${projectName}". ¿Quieres sobreescribirlo?`);
+                    if (!shouldOverwrite) {
+                        return;
+                    }
+                }
+
+                const project = {
+                    id: existingProject ? existingProject.id : Date.now().toString(),
+                    name: projectName,
+                    type: 'project',
+                    collectionName,
+                    modes,
+                    variables: variables.map(v => ({
+                        name: v.name,
+                        charLimit: v.charLimit,
+                        values: { ...v.values } // Keep all values
+                    })),
+                    createdAt: existingProject ? existingProject.createdAt : new Date().toLocaleDateString(),
+                    updatedAt: new Date().toLocaleDateString()
+                };
+
+                let updatedProjects;
+                if (existingProject) {
+                    updatedProjects = savedProjects.map(p => p.id === existingProject.id ? project : p);
+                } else {
+                    updatedProjects = [...savedProjects, project];
+                }
+
+                setSavedProjects(updatedProjects);
+                localStorage.setItem('figma-projects', JSON.stringify(updatedProjects));
+                
+                setProjectName('');
+                setShowProjectModal(false);
+                
+                alert(`Proyecto "${project.name}" ${existingProject ? 'actualizado' : 'guardado'} exitosamente!`);
             };
 
             // Load template
@@ -339,7 +396,6 @@
                 setCollectionName(template.collectionName);
                 setModes(template.modes);
                 
-                // IMPROVED: Ensure all values are properly set, including empty ones
                 const newVariables = template.variables.map((v, index) => ({
                     ...v,
                     id: index.toString(),
@@ -350,19 +406,25 @@
                 }));
                 
                 setVariables(newVariables);
-                alert(`Template "${template.name}" cargado!`);
+                alert(`${template.type === 'template' ? 'Template' : 'Proyecto'} "${template.name}" cargado!`);
             };
 
-            // Delete template
-            const deleteTemplate = (templateId) => {
-                if (confirm('¿Estás seguro de eliminar este template?')) {
-                    const updatedTemplates = savedTemplates.filter(t => t.id !== templateId);
-                    setSavedTemplates(updatedTemplates);
-                    localStorage.setItem('figma-templates', JSON.stringify(updatedTemplates));
+            // Delete template or project
+            const deleteItem = (itemId, type) => {
+                if (confirm(`¿Estás seguro de eliminar este ${type === 'template' ? 'template' : 'proyecto'}?`)) {
+                    if (type === 'template') {
+                        const updatedTemplates = savedTemplates.filter(t => t.id !== itemId);
+                        setSavedTemplates(updatedTemplates);
+                        localStorage.setItem('figma-templates', JSON.stringify(updatedTemplates));
+                    } else {
+                        const updatedProjects = savedProjects.filter(p => p.id !== itemId);
+                        setSavedProjects(updatedProjects);
+                        localStorage.setItem('figma-projects', JSON.stringify(updatedProjects));
+                    }
                 }
             };
 
-            // Import JSON - IMPROVED
+            // Import JSON
             const importJSON = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -376,7 +438,6 @@
                         setCollectionName(collection.name);
                         setModes(collection.modes);
                         
-                        // IMPROVED: Ensure all imported values are properly handled
                         const newVariables = Object.entries(collection.variables).map(([name, variable], index) => ({
                             id: index.toString(),
                             name,
@@ -396,6 +457,12 @@
                 reader.readAsText(file);
                 e.target.value = '';
             };
+
+            // Combine templates and projects for the dropdown
+            const allSavedItems = [
+                ...savedTemplates.map(t => ({ ...t, type: 'template' })),
+                ...savedProjects.map(p => ({ ...p, type: 'project' }))
+            ].sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
 
             return (
                 <div className="min-h-screen bg-gray-50 p-6">
@@ -423,41 +490,55 @@
                                             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                                         >
                                             <BookOpen size={16} />
-                                            Templates
+                                            Guardados
                                         </button>
-                                        <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-gray-200 rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                                        <div className="absolute right-0 top-full mt-1 w-80 bg-white border border-gray-200 rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
                                             <div className="p-3">
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm font-medium text-gray-900">Templates Guardados</span>
-                                                    <button
-                                                        onClick={() => setShowTemplateModal(true)}
-                                                        className="text-xs text-blue-600 hover:text-blue-800"
-                                                    >
-                                                        + Guardar
-                                                    </button>
+                                                    <span className="text-sm font-medium text-gray-900">Templates y Proyectos</span>
+                                                    <div className="flex gap-1">
+                                                        <button
+                                                            onClick={() => setShowTemplateModal(true)}
+                                                            className="text-xs text-blue-600 hover:text-blue-800"
+                                                            title="Guardar estructura (sin contenido)"
+                                                        >
+                                                            + Template
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setShowProjectModal(true)}
+                                                            className="text-xs text-green-600 hover:text-green-800"
+                                                            title="Guardar proyecto completo (con contenido)"
+                                                        >
+                                                            + Proyecto
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                {savedTemplates.length === 0 ? (
-                                                    <p className="text-xs text-gray-500">No hay templates guardados</p>
+                                                {allSavedItems.length === 0 ? (
+                                                    <p className="text-xs text-gray-500">No hay elementos guardados</p>
                                                 ) : (
                                                     <div className="space-y-1 max-h-40 overflow-y-auto">
-                                                        {savedTemplates.map(template => (
-                                                            <div key={template.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
+                                                        {allSavedItems.map(item => (
+                                                            <div key={item.id} className={`flex items-center justify-between p-2 rounded text-xs ${
+                                                                item.type === 'template' ? 'bg-blue-50' : 'bg-green-50'
+                                                            }`}>
                                                                 <div>
-                                                                    <div className="font-medium text-gray-900">{template.name}</div>
+                                                                    <div className="font-medium text-gray-900">
+                                                                        {item.type === 'template' ? '📋' : '💾'} {item.name}
+                                                                    </div>
                                                                     <div className="text-gray-500">
-                                                                        {template.updatedAt ? `Actualizado: ${template.updatedAt}` : template.createdAt}
+                                                                        {item.type === 'template' ? 'Template' : 'Proyecto'} • {item.updatedAt ? `Act: ${item.updatedAt}` : item.createdAt}
                                                                     </div>
                                                                 </div>
                                                                 <div className="flex gap-1">
                                                                     <button
-                                                                        onClick={() => loadTemplate(template)}
+                                                                        onClick={() => loadTemplate(item)}
                                                                         className="text-blue-600 hover:text-blue-800"
-                                                                        title="Cargar template"
+                                                                        title="Cargar"
                                                                     >
                                                                         ↑
                                                                     </button>
                                                                     <button
-                                                                        onClick={() => deleteTemplate(template.id)}
+                                                                        onClick={() => deleteItem(item.id, item.type)}
                                                                         className="text-red-600 hover:text-red-800"
                                                                         title="Eliminar"
                                                                     >
@@ -623,7 +704,7 @@
                         </div>
 
                         <div className="mt-6 text-center text-sm text-gray-500">
-                            Editor de Variables de Texto para Figma v2.3 - Campos vacíos corregidos
+                            Editor de Variables de Texto para Figma v3.0 - Templates y Proyectos
                         </div>
 
                         {/* Template Save Modal */}
@@ -631,7 +712,7 @@
                             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                                 <div className="bg-white rounded-lg p-6 w-96 mx-4">
                                     <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-lg font-semibold text-gray-900">Guardar Template</h3>
+                                        <h3 className="text-lg font-semibold text-gray-900">📋 Guardar Template</h3>
                                         <button
                                             onClick={() => {
                                                 setShowTemplateModal(false);
@@ -655,17 +736,14 @@
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
                                             autoFocus
                                         />
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            Si ya existe un template con este nombre, se te preguntará si quieres sobreescribirlo.
-                                        </p>
                                     </div>
                                     
-                                    <div className="text-sm text-gray-600 mb-4">
-                                        <p>Se guardará:</p>
-                                        <ul className="list-disc list-inside ml-2 mt-1 space-y-1">
-                                            <li>Nombres de variables y límites de caracteres</li>
+                                    <div className="text-sm text-gray-600 mb-4 bg-blue-50 p-3 rounded">
+                                        <p className="font-medium mb-1">Template = Solo estructura</p>
+                                        <ul className="list-disc list-inside ml-2 space-y-1">
+                                            <li>Nombres de variables y límites</li>
                                             <li>Idiomas/modos configurados</li>
-                                            <li>Estructura general (textos se vaciarán)</li>
+                                            <li><strong>Textos se vacían</strong> (para reutilizar)</li>
                                         </ul>
                                     </div>
                                     
@@ -681,9 +759,70 @@
                                         </button>
                                         <button
                                             onClick={saveTemplate}
-                                            className="px-4 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                                            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                                         >
                                             Guardar Template
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Project Save Modal */}
+                        {showProjectModal && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                                <div className="bg-white rounded-lg p-6 w-96 mx-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold text-gray-900">💾 Guardar Proyecto</h3>
+                                        <button
+                                            onClick={() => {
+                                                setShowProjectModal(false);
+                                                setProjectName('');
+                                            }}
+                                            className="text-gray-400 hover:text-gray-600"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Nombre del Proyecto
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={projectName}
+                                            onChange={(e) => setProjectName(e.target.value)}
+                                            placeholder="ej: Campaign Q1 2024"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
+                                            autoFocus
+                                        />
+                                    </div>
+                                    
+                                    <div className="text-sm text-gray-600 mb-4 bg-green-50 p-3 rounded">
+                                        <p className="font-medium mb-1">Proyecto = Estado completo</p>
+                                        <ul className="list-disc list-inside ml-2 space-y-1">
+                                            <li>Toda la estructura</li>
+                                            <li><strong>Todos los textos incluidos</strong></li>
+                                            <li>Para continuar trabajando después</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div className="flex gap-3 justify-end">
+                                        <button
+                                            onClick={() => {
+                                                setShowProjectModal(false);
+                                                setProjectName('');
+                                            }}
+                                            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={saveProject}
+                                            className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                        >
+                                            Guardar Proyecto
                                         </button>
                                     </div>
                                 </div>
