@@ -120,9 +120,14 @@
                 }
             }, []);
 
-            // Check if field is empty (for red border)
+            // Check if field is empty (for red border) - IMPROVED VERSION
             const isFieldEmpty = (value) => {
-                return !value || value.trim() === '';
+                return !value || value.toString().trim() === '' || value === null || value === undefined;
+            };
+
+            // Get border class based on field content
+            const getFieldBorderClass = (value) => {
+                return isFieldEmpty(value) ? 'empty-field' : 'border-gray-200';
             };
 
             // Add new mode
@@ -333,10 +338,18 @@
             const loadTemplate = (template) => {
                 setCollectionName(template.collectionName);
                 setModes(template.modes);
-                setVariables(template.variables.map((v, index) => ({
+                
+                // IMPROVED: Ensure all values are properly set, including empty ones
+                const newVariables = template.variables.map((v, index) => ({
                     ...v,
-                    id: index.toString()
-                })));
+                    id: index.toString(),
+                    values: template.modes.reduce((acc, mode) => ({
+                        ...acc,
+                        [mode]: v.values[mode] || ''
+                    }), {})
+                }));
+                
+                setVariables(newVariables);
                 alert(`Template "${template.name}" cargado!`);
             };
 
@@ -349,7 +362,7 @@
                 }
             };
 
-            // Import JSON
+            // Import JSON - IMPROVED
             const importJSON = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -363,10 +376,14 @@
                         setCollectionName(collection.name);
                         setModes(collection.modes);
                         
+                        // IMPROVED: Ensure all imported values are properly handled
                         const newVariables = Object.entries(collection.variables).map(([name, variable], index) => ({
                             id: index.toString(),
                             name,
-                            values: variable.values,
+                            values: collection.modes.reduce((acc, mode) => ({
+                                ...acc,
+                                [mode]: variable.values[mode] || ''
+                            }), {}),
                             charLimit: 50
                         }));
                         
@@ -528,11 +545,9 @@
                                                 <td className="px-4 py-3">
                                                     <input
                                                         type="text"
-                                                        value={variable.name}
+                                                        value={variable.name || ''}
                                                         onChange={(e) => updateVariableName(variable.id, e.target.value)}
-                                                        className={`w-full px-3 py-2 text-sm font-bold border rounded focus:outline-none focus:ring-2 focus:ring-gray-300 ${
-                                                            isFieldEmpty(variable.name) ? 'empty-field' : 'border-gray-200'
-                                                        }`}
+                                                        className={`w-full px-3 py-2 text-sm font-bold border rounded focus:outline-none focus:ring-2 focus:ring-gray-300 ${getFieldBorderClass(variable.name)}`}
                                                         placeholder="variable-name"
                                                     />
                                                 </td>
@@ -542,9 +557,7 @@
                                                             <textarea
                                                                 value={variable.values[mode] || ''}
                                                                 onChange={(e) => updateVariableValue(variable.id, mode, e.target.value)}
-                                                                className={`w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none ${
-                                                                    isFieldEmpty(variable.values[mode]) ? 'empty-field' : 'border-gray-200'
-                                                                }`}
+                                                                className={`w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none ${getFieldBorderClass(variable.values[mode])}`}
                                                                 rows="2"
                                                                 placeholder={`Texto en ${mode}`}
                                                             />
@@ -610,7 +623,7 @@
                         </div>
 
                         <div className="mt-6 text-center text-sm text-gray-500">
-                            Editor de Variables de Texto para Figma v2.2 - Final
+                            Editor de Variables de Texto para Figma v2.3 - Campos vacíos corregidos
                         </div>
 
                         {/* Template Save Modal */}
