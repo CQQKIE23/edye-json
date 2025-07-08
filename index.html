@@ -13,6 +13,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
+        .empty-field {
+            border-color: #FF6600 !important;
+            border-width: 2px !important;
+        }
     </style>
 </head>
 <body>
@@ -115,6 +119,11 @@
                     setSavedTemplates(JSON.parse(saved));
                 }
             }, []);
+
+            // Check if field is empty (for red border)
+            const isFieldEmpty = (value) => {
+                return !value || value.trim() === '';
+            };
 
             // Add new mode
             const addMode = () => {
@@ -274,8 +283,18 @@
                     return;
                 }
 
+                // Check if template with same name exists
+                const existingTemplate = savedTemplates.find(t => t.name === templateName);
+                
+                if (existingTemplate) {
+                    const shouldOverwrite = confirm(`Ya existe un template llamado "${templateName}". ¿Quieres sobreescribirlo?`);
+                    if (!shouldOverwrite) {
+                        return;
+                    }
+                }
+
                 const template = {
-                    id: Date.now().toString(),
+                    id: existingTemplate ? existingTemplate.id : Date.now().toString(),
                     name: templateName,
                     collectionName,
                     modes,
@@ -284,16 +303,30 @@
                         charLimit: v.charLimit,
                         values: Object.keys(v.values).reduce((acc, mode) => ({ ...acc, [mode]: '' }), {})
                     })),
-                    createdAt: new Date().toLocaleDateString()
+                    createdAt: existingTemplate ? existingTemplate.createdAt : new Date().toLocaleDateString(),
+                    updatedAt: new Date().toLocaleDateString()
                 };
 
-                const updatedTemplates = [...savedTemplates, template];
+                let updatedTemplates;
+                if (existingTemplate) {
+                    // Replace existing template
+                    updatedTemplates = savedTemplates.map(t => t.id === existingTemplate.id ? template : t);
+                } else {
+                    // Add new template
+                    updatedTemplates = [...savedTemplates, template];
+                }
+
                 setSavedTemplates(updatedTemplates);
                 localStorage.setItem('figma-templates', JSON.stringify(updatedTemplates));
                 
                 setTemplateName('');
                 setShowTemplateModal(false);
-                alert(`Template "${template.name}" guardado exitosamente!`);
+                
+                if (existingTemplate) {
+                    alert(`Template "${template.name}" actualizado exitosamente!`);
+                } else {
+                    alert(`Template "${template.name}" guardado exitosamente!`);
+                }
             };
 
             // Load template
@@ -394,7 +427,9 @@
                                                             <div key={template.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
                                                                 <div>
                                                                     <div className="font-medium text-gray-900">{template.name}</div>
-                                                                    <div className="text-gray-500">{template.createdAt}</div>
+                                                                    <div className="text-gray-500">
+                                                                        {template.updatedAt ? `Actualizado: ${template.updatedAt}` : template.createdAt}
+                                                                    </div>
                                                                 </div>
                                                                 <div className="flex gap-1">
                                                                     <button
@@ -495,7 +530,9 @@
                                                         type="text"
                                                         value={variable.name}
                                                         onChange={(e) => updateVariableName(variable.id, e.target.value)}
-                                                        className="w-full px-3 py-2 text-sm font-bold border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-gray-300"
+                                                        className={`w-full px-3 py-2 text-sm font-bold border rounded focus:outline-none focus:ring-2 focus:ring-gray-300 ${
+                                                            isFieldEmpty(variable.name) ? 'empty-field' : 'border-gray-200'
+                                                        }`}
                                                         placeholder="variable-name"
                                                     />
                                                 </td>
@@ -505,7 +542,9 @@
                                                             <textarea
                                                                 value={variable.values[mode] || ''}
                                                                 onChange={(e) => updateVariableValue(variable.id, mode, e.target.value)}
-                                                                className="w-full px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none"
+                                                                className={`w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none ${
+                                                                    isFieldEmpty(variable.values[mode]) ? 'empty-field' : 'border-gray-200'
+                                                                }`}
                                                                 rows="2"
                                                                 placeholder={`Texto en ${mode}`}
                                                             />
@@ -571,7 +610,7 @@
                         </div>
 
                         <div className="mt-6 text-center text-sm text-gray-500">
-                            Editor de Variables de Texto para Figma v2.1 - Con Templates
+                            Editor de Variables de Texto para Figma v2.2 - Final
                         </div>
 
                         {/* Template Save Modal */}
@@ -603,6 +642,9 @@
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
                                             autoFocus
                                         />
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Si ya existe un template con este nombre, se te preguntará si quieres sobreescribirlo.
+                                        </p>
                                     </div>
                                     
                                     <div className="text-sm text-gray-600 mb-4">
