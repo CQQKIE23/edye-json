@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -97,17 +98,23 @@
             </svg>
         );
 
+        const ChevronDown = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="6,9 12,15 18,9"></polyline>
+            </svg>
+        );
+
         const FigmaVariablesEditor = () => {
             const [collectionName, setCollectionName] = useState('Languages');
             const [modes, setModes] = useState(['SPA', 'POR', 'ENG']);
             const [variables, setVariables] = useState([
                 {
                     id: '1',
-                    name: 'Figma Variable Name',
+                    name: 'kicker',
                     values: {
-                        'SPA': 'Escibe texto',
-                        'POR': 'Escriver',
-                        'ENG': 'Insert text'
+                        'SPA': '¡Exploradores del futuro!',
+                        'POR': 'Exploradores do Futuro!',
+                        'ENG': 'Future Explorers!'
                     },
                     charLimit: 50
                 }
@@ -121,10 +128,13 @@
             const [showProjectModal, setShowProjectModal] = useState(false);
             const [showOpenModal, setShowOpenModal] = useState(false);
             const [showOpenTemplateModal, setShowOpenTemplateModal] = useState(false);
+            const [showExportMenu, setShowExportMenu] = useState(false);
+            const [showImportMenu, setShowImportMenu] = useState(false);
             const [templateName, setTemplateName] = useState('');
             const [projectName, setProjectName] = useState('');
             const [currentProject, setCurrentProject] = useState(null);
             const fileInputRef = useRef(null);
+            const excelInputRef = useRef(null);
 
             // Load saved data on component mount
             useEffect(() => {
@@ -298,6 +308,116 @@
                     newWindow.document.title = 'Figma Variables JSON';
                     alert('JSON mostrado en ventana nueva - copia el contenido');
                 }
+                setShowExportMenu(false);
+            };
+
+            // NEW: Export to Excel
+            const exportExcel = () => {
+                try {
+                    // Create workbook
+                    const wb = XLSX.utils.book_new();
+                    
+                    // Prepare data
+                    const headers = ['Variable Name', 'Character Limit', ...modes];
+                    const data = [headers];
+                    
+                    variables.forEach(variable => {
+                        const row = [
+                            variable.name,
+                            variable.charLimit,
+                            ...modes.map(mode => variable.values[mode] || '')
+                        ];
+                        data.push(row);
+                    });
+                    
+                    // Create worksheet
+                    const ws = XLSX.utils.aoa_to_sheet(data);
+                    
+                    // Set column widths
+                    const colWidths = [
+                        { wch: 25 }, // Variable Name
+                        { wch: 15 }, // Character Limit
+                        ...modes.map(() => ({ wch: 30 })) // Language columns
+                    ];
+                    ws['!cols'] = colWidths;
+                    
+                    // Add worksheet to workbook
+                    XLSX.utils.book_append_sheet(wb, ws, 'Variables');
+                    
+                    // Save file
+                    XLSX.writeFile(wb, `${collectionName.toLowerCase().replace(/\s+/g, '-')}.xlsx`);
+                    
+                } catch (error) {
+                    alert('Error al exportar Excel: ' + error.message);
+                }
+                setShowExportMenu(false);
+            };
+
+            // NEW: Import from Excel
+            const importExcel = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = new Uint8Array(event.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        // Get first worksheet
+                        const worksheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[worksheetName];
+                        
+                        // Convert to array of arrays
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                        
+                        if (jsonData.length < 2) {
+                            alert('El archivo Excel debe tener al menos una fila de encabezados y una fila de datos');
+                            return;
+                        }
+                        
+                        const headers = jsonData[0];
+                        const variableName = headers[0];
+                        const charLimitCol = headers[1];
+                        const languageCols = headers.slice(2);
+                        
+                        // Validate headers
+                        if (!variableName || !charLimitCol || languageCols.length === 0) {
+                            alert('Formato incorrecto. Debe tener: Variable Name, Character Limit, y al menos un idioma');
+                            return;
+                        }
+                        
+                        // Set modes from headers
+                        setModes(languageCols);
+                        
+                        // Convert data rows to variables
+                        const newVariables = jsonData.slice(1).map((row, index) => {
+                            if (!row[0]) return null; // Skip empty rows
+                            
+                            const values = {};
+                            languageCols.forEach((lang, langIndex) => {
+                                values[lang] = row[2 + langIndex] || '';
+                            });
+                            
+                            return {
+                                id: index.toString(),
+                                name: row[0] || `variable-${index + 1}`,
+                                charLimit: parseInt(row[1]) || 50,
+                                values
+                            };
+                        }).filter(Boolean);
+                        
+                        setVariables(newVariables);
+                        setCurrentProject(null);
+                        alert('Excel importado exitosamente!');
+                        
+                    } catch (error) {
+                        alert('Error al importar Excel: ' + error.message);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+                e.target.value = '';
+                setShowImportMenu(false);
             };
 
             // Save changes to current project
@@ -497,6 +617,7 @@
                 };
                 reader.readAsText(file);
                 e.target.value = '';
+                setShowImportMenu(false);
             };
 
             return (
@@ -520,7 +641,7 @@
                                     )}
                                 </div>
                                 
-                                {/* TOOLBAR REORGANIZADO */}
+                                {/* TOOLBAR WITH EXCEL SUPPORT */}
                                 <div className="flex gap-2">
                                     {/* Abrir (guardados) */}
                                     <button
@@ -558,31 +679,77 @@
                                         📋 Abrir Template
                                     </button>
 
-                                    {/* Import JSON */}
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                                    >
-                                        <Upload size={16} />
-                                        Import JSON
-                                    </button>
+                                    {/* Import Dropdown */}
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setShowImportMenu(!showImportMenu)}
+                                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                        >
+                                            <Upload size={16} />
+                                            Import
+                                            <ChevronDown size={14} />
+                                        </button>
+                                        {showImportMenu && (
+                                            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                                                <button
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    📄 Import JSON
+                                                </button>
+                                                <button
+                                                    onClick={() => excelInputRef.current?.click()}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    📊 Import Excel/Numbers
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
 
-                                    {/* Export JSON */}
-                                    <button
-                                        onClick={exportJSON}
-                                        className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
-                                    >
-                                        <Download size={16} />
-                                        Export JSON
-                                    </button>
+                                    {/* Export Dropdown */}
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setShowExportMenu(!showExportMenu)}
+                                            className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                                        >
+                                            <Download size={16} />
+                                            Export
+                                            <ChevronDown size={14} />
+                                        </button>
+                                        {showExportMenu && (
+                                            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                                                <button
+                                                    onClick={exportJSON}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    📄 Export JSON
+                                                </button>
+                                                <button
+                                                    onClick={exportExcel}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    📊 Export Excel/Numbers
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                             
+                            {/* Hidden file inputs */}
                             <input
                                 ref={fileInputRef}
                                 type="file"
                                 accept=".json"
                                 onChange={importJSON}
+                                className="hidden"
+                            />
+                            <input
+                                ref={excelInputRef}
+                                type="file"
+                                accept=".xlsx,.xls"
+                                onChange={importExcel}
                                 className="hidden"
                             />
                         </div>
@@ -719,9 +886,12 @@
                         </div>
 
                         <div className="mt-6 text-center text-sm text-gray-500">
-                            Editor de Variables de Texto para Figma v4.0 - Toolbar reorganizado
+                            Editor de Variables de Texto para Figma v5.0 - Con soporte Excel/Numbers
                         </div>
 
+                        {/* All the modals remain the same as before... */}
+                        {/* (Keeping the existing modals for brevity) */}
+                        
                         {/* Open Projects Modal */}
                         {showOpenModal && (
                             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
