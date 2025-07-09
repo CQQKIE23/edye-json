@@ -299,14 +299,33 @@
                     })) : [];
                     
                     setVariables(newVariables);
-                    setCurrentProject(null);
+                    
+                    // NEW: Create a temporary project for the shared content
+                    const tempProject = {
+                        id: 'shared-' + Date.now(),
+                        name: `${sharedProject.collectionName || 'Proyecto compartido'} (Copia)`,
+                        type: 'project',
+                        collectionName: sharedProject.collectionName || 'Languages',
+                        modes: sharedProject.modes || ['SPA', 'POR', 'ENG'],
+                        variables: newVariables.map(v => ({
+                            name: v.name,
+                            charLimit: v.charLimit,
+                            values: { ...v.values }
+                        })),
+                        isShared: true,
+                        sharedAt: sharedProject.sharedAt,
+                        createdAt: new Date().toLocaleDateString(),
+                        updatedAt: new Date().toLocaleDateString()
+                    };
+                    
+                    setCurrentProject(tempProject);
                     
                     // Clear URL after loading
                     window.history.replaceState({}, document.title, window.location.pathname);
                     
                     // Show notification
                     setTimeout(() => {
-                        alert('¡Proyecto compartido cargado exitosamente!');
+                        alert('¡Proyecto compartido cargado! Puedes editarlo y guardar tus cambios.');
                     }, 500);
                 }
             }, []);
@@ -582,7 +601,7 @@
                 setShowImportMenu(false);
             };
 
-            // Save changes to current project
+            // Save changes to current project (updated for shared projects)
             const saveCurrentProject = () => {
                 if (!currentProject) return;
 
@@ -598,18 +617,35 @@
                     updatedAt: new Date().toLocaleDateString()
                 };
 
-                if (currentProject.type === 'project') {
-                    const updatedProjects = savedProjects.map(p => p.id === currentProject.id ? updatedProject : p);
+                // If it's a shared project, save it as a new local project
+                if (currentProject.isShared) {
+                    const newProject = {
+                        ...updatedProject,
+                        id: Date.now().toString(),
+                        isShared: false // Remove shared flag
+                    };
+                    
+                    const updatedProjects = [...savedProjects, newProject];
                     setSavedProjects(updatedProjects);
                     localStorage.setItem('figma-projects', JSON.stringify(updatedProjects));
+                    setCurrentProject(newProject);
+                    
+                    alert(`Proyecto compartido guardado como "${newProject.name}" en tu colección local!`);
                 } else {
-                    const updatedTemplates = savedTemplates.map(t => t.id === currentProject.id ? updatedProject : t);
-                    setSavedTemplates(updatedTemplates);
-                    localStorage.setItem('figma-templates', JSON.stringify(updatedTemplates));
-                }
+                    // Regular project update
+                    if (currentProject.type === 'project') {
+                        const updatedProjects = savedProjects.map(p => p.id === currentProject.id ? updatedProject : p);
+                        setSavedProjects(updatedProjects);
+                        localStorage.setItem('figma-projects', JSON.stringify(updatedProjects));
+                    } else {
+                        const updatedTemplates = savedTemplates.map(t => t.id === currentProject.id ? updatedProject : t);
+                        setSavedTemplates(updatedTemplates);
+                        localStorage.setItem('figma-templates', JSON.stringify(updatedTemplates));
+                    }
 
-                setCurrentProject(updatedProject);
-                alert(`${currentProject.type === 'template' ? 'Template' : 'Proyecto'} "${currentProject.name}" actualizado!`);
+                    setCurrentProject(updatedProject);
+                    alert(`${currentProject.type === 'template' ? 'Template' : 'Proyecto'} "${currentProject.name}" actualizado!`);
+                }
             };
 
             // Save as template (structure only)
@@ -797,8 +833,10 @@
                                     />
                                     {currentProject && (
                                         <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full text-sm text-blue-700">
-                                            <span>{currentProject.type === 'template' ? '📋' : '💾'}</span>
-                                            <span>Editando: <strong>{currentProject.name}</strong></span>
+                                            <span>{currentProject.type === 'template' ? '📋' : currentProject.isShared ? '🔗' : '💾'}</span>
+                                            <span>
+                                                {currentProject.isShared ? 'Editando (compartido):' : 'Editando:'} <strong>{currentProject.name}</strong>
+                                            </span>
                                         </div>
                                     )}
                                 </div>
@@ -822,10 +860,16 @@
                                                 ? 'bg-blue-600 text-white hover:bg-blue-700' 
                                                 : 'bg-green-600 text-white hover:bg-green-700'
                                         }`}
-                                        title={currentProject ? `Guardar cambios en "${currentProject.name}"` : 'Guardar como nuevo proyecto'}
+                                        title={currentProject 
+                                            ? (currentProject.isShared 
+                                                ? `Guardar copia local de "${currentProject.name}"` 
+                                                : `Guardar cambios en "${currentProject.name}"`) 
+                                            : 'Guardar como nuevo proyecto'}
                                     >
                                         <Save size={16} />
-                                        {currentProject ? 'Guardar' : '💾 Guardar como...'}
+                                        {currentProject 
+                                            ? (currentProject.isShared ? '💾 Guardar copia' : 'Guardar')
+                                            : '💾 Guardar como...'}
                                     </button>
 
                                     {/* Share Button */}
@@ -1060,7 +1104,7 @@
                         </div>
 
                         <div className="mt-6 text-center text-sm text-gray-500">
-                            Editor de Variables de Texto para Figma v5.2 - Con Links Shareables Optimizados
+                            Editor de Variables de Texto para Figma v5.3 - Colaboración Mejorada
                         </div>
 
                         {/* NEW: Share Modal with improved UX */}
