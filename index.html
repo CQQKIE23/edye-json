@@ -804,7 +804,7 @@
                                 </div>
                                 
                                 {/* TOOLBAR WITH SHARING SUPPORT */}
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 flex-wrap">
                                     {/* Abrir (guardados) */}
                                     <button
                                         onClick={() => setShowOpenModal(true)}
@@ -814,21 +814,24 @@
                                         Abrir
                                     </button>
 
-                                    {/* Guardar (solo si hay proyecto activo) */}
-                                    {currentProject && (
-                                        <button
-                                            onClick={saveCurrentProject}
-                                            className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                                        >
-                                            <Save size={16} />
-                                            Guardar
-                                        </button>
-                                    )}
+                                    {/* Guardar - SIEMPRE VISIBLE con estado dinámico */}
+                                    <button
+                                        onClick={currentProject ? saveCurrentProject : () => setShowProjectModal(true)}
+                                        className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
+                                            currentProject 
+                                                ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                                : 'bg-green-600 text-white hover:bg-green-700'
+                                        }`}
+                                        title={currentProject ? `Guardar cambios en "${currentProject.name}"` : 'Guardar como nuevo proyecto'}
+                                    >
+                                        <Save size={16} />
+                                        {currentProject ? 'Guardar' : '💾 Guardar como...'}
+                                    </button>
 
-                                    {/* NEW: Share Button */}
+                                    {/* Share Button */}
                                     <button
                                         onClick={shareProject}
-                                        className="flex items-center gap-2 px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                        className="flex items-center gap-2 px-3 py-2 text-sm bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
                                     >
                                         <Share size={16} />
                                         🔗 Compartir
