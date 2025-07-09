@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editor de Variables de Texto para Figma</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -13,7 +13,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            margin: 0;
+            padding: 0;
+        }
         .empty-field {
             border-color: #FF6600 !important;
             border-width: 2px !important;
@@ -57,107 +61,62 @@
         .dark .hover\:bg-gray-100:hover {
             background-color: #444444 !important;
         }
+        /* Loading fallback */
+        #loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-size: 18px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
+    <div id="loading">Cargando Editor de Variables...</div>
     <div id="root"></div>
+    
     <script type="text/babel">
+        console.log('🚀 Iniciando editor...');
+        
+        // Check if React loaded
+        if (typeof React === 'undefined') {
+            document.getElementById('loading').innerHTML = '❌ Error: React no se cargó. Revisa tu conexión a internet.';
+            throw new Error('React not loaded');
+        }
+        
+        console.log('✅ React cargado');
+        
         const { useState, useRef, useEffect } = React;
 
-        // Icons
-        const GripVertical = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <circle cx="9" cy="12" r="1"></circle>
-                <circle cx="9" cy="5" r="1"></circle>
-                <circle cx="9" cy="19" r="1"></circle>
-                <circle cx="15" cy="12" r="1"></circle>
-                <circle cx="15" cy="5" r="1"></circle>
-                <circle cx="15" cy="19" r="1"></circle>
-            </svg>
-        );
+        // Simple fallback icons as text
+        const iconFallbacks = {
+            GripVertical: '⋮⋮',
+            Plus: '+',
+            Trash2: '🗑️',
+            Download: '⬇️',
+            Upload: '⬆️',
+            Settings: '⚙️',
+            FolderOpen: '📁',
+            Save: '💾',
+            X: '✕',
+            ChevronDown: '▼',
+            Edit: '✏️',
+            File: '📄'
+        };
 
-        const Plus = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-        );
-
-        const Trash2 = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <polyline points="3,6 5,6 21,6"></polyline>
-                <path d="m19,6v14a2,2 0 0,1-2,2H7a2,2 0 0,1-2-2V6m3,0V4a2,2 0 0,1,2-2h4a2,2 0 0,1,2,2v2"></path>
-                <line x1="10" y1="11" x2="10" y2="17"></line>
-                <line x1="14" y1="11" x2="14" y2="17"></line>
-            </svg>
-        );
-
-        const Download = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7,10 12,15 17,10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-        );
-
-        const Upload = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17,8 12,3 7,8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-        );
-
-        const Settings = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="m12 1 1.4 1.4a2 2 0 0 0 1.4.6h2a2 2 0 0 1 2 2v2a2 2 0 0 0 .6 1.4L21 12l-1.4 1.4a2 2 0 0 0-.6 1.4v2a2 2 0 0 1-2 2h-2a2 2 0 0 0-1.4.6L12 23l-1.4-1.4a2 2 0 0 0-1.4-.6H7a2 2 0 0 1-2-2v-2a2 2 0 0 0-.6-1.4L3 12l1.4-1.4a2 2 0 0 0 .6-1.4V7a2 2 0 0 1 2-2h2a2 2 0 0 0 1.4-.6L12 1Z"></path>
-            </svg>
-        );
-
-        const FolderOpen = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                <path d="M2 6h20v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z"></path>
-            </svg>
-        );
-
-        const Save = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                <polyline points="17,21 17,13 7,13 7,21"></polyline>
-                <polyline points="7,3 7,8 15,8"></polyline>
-            </svg>
-        );
-
-        const X = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-        );
-
-        const ChevronDown = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <polyline points="6,9 12,15 18,9"></polyline>
-            </svg>
-        );
-
-        const Edit = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-        );
-
-        const File = ({ size = 24, className = "" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
-                <polyline points="14,2 14,8 20,8"></polyline>
-            </svg>
-        );
+        // Icons with fallback
+        const Icon = ({ name, size = 16, className = "" }) => {
+            return (
+                <span className={`inline-block ${className}`} style={{ fontSize: `${size}px` }}>
+                    {iconFallbacks[name] || '●'}
+                </span>
+            );
+        };
 
         const FigmaVariablesEditor = () => {
+            console.log('🎨 Renderizando componente principal...');
+            
             const [collectionName, setCollectionName] = useState('Bnp Projects');
             const [modes, setModes] = useState(['SPA', 'POR', 'ENG']);
             const [variables, setVariables] = useState([
@@ -173,36 +132,13 @@
                 }
             ]);
 
-            const [draggedItem, setDraggedItem] = useState(null);
-            const [editingLimit, setEditingLimit] = useState(null);
-            const [editingProjectName, setEditingProjectName] = useState(false);
             const [darkMode, setDarkMode] = useState(false);
-            const [savedTemplates, setSavedTemplates] = useState([]);
-            const [savedProjects, setSavedProjects] = useState([]);
-            const [showTemplateModal, setShowTemplateModal] = useState(false);
-            const [showProjectModal, setShowProjectModal] = useState(false);
-            const [showOpenModal, setShowOpenModal] = useState(false);
-            const [showOpenTemplateModal, setShowOpenTemplateModal] = useState(false);
-            const [showExportMenu, setShowExportMenu] = useState(false);
-            const [showImportMenu, setShowImportMenu] = useState(false);
-            const [templateName, setTemplateName] = useState('');
-            const [projectName, setProjectName] = useState('');
+            const [editingProjectName, setEditingProjectName] = useState(false);
             const [currentProject, setCurrentProject] = useState(null);
-            const fileInputRef = useRef(null);
-            const excelInputRef = useRef(null);
 
-            // Load saved data on component mount
+            // Load dark mode on mount
             useEffect(() => {
-                const savedTemplatesData = localStorage.getItem('figma-templates');
-                if (savedTemplatesData) {
-                    setSavedTemplates(JSON.parse(savedTemplatesData));
-                }
-                
-                const savedProjectsData = localStorage.getItem('figma-projects');
-                if (savedProjectsData) {
-                    setSavedProjects(JSON.parse(savedProjectsData));
-                }
-
+                console.log('⚙️ Configurando modo oscuro...');
                 const savedDarkMode = localStorage.getItem('figma-dark-mode');
                 if (savedDarkMode) {
                     setDarkMode(JSON.parse(savedDarkMode));
@@ -219,55 +155,6 @@
                 }
             }, [darkMode]);
 
-            // Check if field is empty (for red border)
-            const isFieldEmpty = (value) => {
-                return !value || value.toString().trim() === '' || value === null || value === undefined;
-            };
-
-            // Get field border class based on content and character limit
-            const getFieldBorderClass = (value, charLimit = null) => {
-                if (isFieldEmpty(value)) {
-                    return 'empty-field';
-                }
-                
-                if (charLimit) {
-                    const length = (value || '').length;
-                    const ratio = length / charLimit;
-                    
-                    if (ratio >= 1) {
-                        return 'at-limit';
-                    } else if (ratio >= 0.9) {
-                        return 'near-limit';
-                    }
-                }
-                
-                return 'border-gray-200';
-            };
-
-            // Add new mode
-            const addMode = () => {
-                const newMode = prompt('Nombre del nuevo modo (ej: FRA, ITA):');
-                if (newMode && !modes.includes(newMode)) {
-                    setModes([...modes, newMode]);
-                    setVariables(variables.map(variable => ({
-                        ...variable,
-                        values: { ...variable.values, [newMode]: '' }
-                    })));
-                }
-            };
-
-            // Remove mode
-            const removeMode = (modeToRemove) => {
-                if (modes.length <= 1) return;
-                setModes(modes.filter(mode => mode !== modeToRemove));
-                setVariables(variables.map(variable => {
-                    const newValues = { ...variable.values };
-                    delete newValues[modeToRemove];
-                    return { ...variable, values: newValues };
-                }));
-            };
-
-            // Add new variable
             const addVariable = () => {
                 const newVariable = {
                     id: Date.now().toString(),
@@ -278,17 +165,14 @@
                 setVariables([...variables, newVariable]);
             };
 
-            // Remove variable
             const removeVariable = (id) => {
                 setVariables(variables.filter(v => v.id !== id));
             };
 
-            // Update variable name
             const updateVariableName = (id, name) => {
                 setVariables(variables.map(v => v.id === id ? { ...v, name } : v));
             };
 
-            // Update variable value with character limit control
             const updateVariableValue = (id, mode, value) => {
                 const variable = variables.find(v => v.id === id);
                 if (!variable) return;
@@ -305,999 +189,225 @@
                 ));
             };
 
-            // Update character limit
-            const updateLimit = (id, limit) => {
-                const newLimit = parseInt(limit) || 50;
-                
-                setVariables(variables.map(v => {
-                    if (v.id === id) {
-                        const truncatedValues = {};
-                        Object.keys(v.values).forEach(mode => {
-                            const currentValue = v.values[mode] || '';
-                            truncatedValues[mode] = currentValue.length > newLimit 
-                                ? currentValue.substring(0, newLimit)
-                                : currentValue;
-                        });
-                        
-                        return { 
-                            ...v, 
-                            charLimit: newLimit,
-                            values: truncatedValues
-                        };
-                    }
-                    return v;
-                }));
-                setEditingLimit(null);
-            };
-
-            // Get character count color
             const getCountColor = (length, limit) => {
                 const ratio = length / limit;
-                if (ratio >= 1) return 'text-red-600 font-bold';
-                if (ratio >= 0.9) return 'text-orange-600 font-semibold';
-                if (ratio > 0.8) return 'text-yellow-600';
-                return darkMode ? 'text-gray-400' : 'text-gray-500';
+                if (ratio >= 1) return 'color: #DC2626; font-weight: bold;';
+                if (ratio >= 0.9) return 'color: #EA580C; font-weight: 600;';
+                if (ratio > 0.8) return 'color: #D97706;';
+                return darkMode ? 'color: #9CA3AF;' : 'color: #6B7280;';
             };
 
-            // Handle textarea input with real-time limit enforcement
-            const handleTextareaChange = (e, variableId, mode) => {
-                const value = e.target.value;
-                const variable = variables.find(v => v.id === variableId);
+            console.log('🎯 Renderizando UI...');
+
+            return React.createElement('div', {
+                className: `min-h-screen transition-colors duration-200 ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`,
+                style: { fontFamily: 'Inter, sans-serif' }
+            }, [
+                // Header
+                React.createElement('div', {
+                    key: 'header',
+                    className: `${darkMode ? 'bg-gray-800' : 'bg-white'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`,
+                    style: { padding: '16px 24px' }
+                }, [
+                    // Top Row
+                    React.createElement('div', {
+                        key: 'top-row',
+                        className: 'flex items-center justify-between',
+                        style: { marginBottom: '32px' }
+                    }, [
+                        React.createElement('div', {
+                            key: 'title-section',
+                            className: 'flex items-center gap-2'
+                        }, [
+                            editingProjectName 
+                                ? React.createElement('input', {
+                                    key: 'title-input',
+                                    type: 'text',
+                                    value: collectionName,
+                                    onChange: (e) => setCollectionName(e.target.value),
+                                    onBlur: () => setEditingProjectName(false),
+                                    onKeyDown: (e) => {
+                                        if (e.key === 'Enter') setEditingProjectName(false);
+                                    },
+                                    className: `text-2xl font-medium tracking-wide bg-transparent border-none outline-none ${darkMode ? 'text-white' : 'text-black'}`,
+                                    autoFocus: true,
+                                    style: { fontSize: '27px', lineHeight: '1.1', letterSpacing: '0.01em' }
+                                })
+                                : React.createElement('h1', {
+                                    key: 'title-text',
+                                    className: `text-2xl font-medium tracking-wide cursor-pointer ${darkMode ? 'text-white' : 'text-black'}`,
+                                    onClick: () => setEditingProjectName(true),
+                                    style: { fontSize: '27px', lineHeight: '1.1', letterSpacing: '0.01em' }
+                                }, collectionName),
+                            React.createElement('button', {
+                                key: 'edit-btn',
+                                onClick: () => setEditingProjectName(true),
+                                className: `${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-black'} transition-colors`
+                            }, React.createElement(Icon, { name: 'Edit', size: 16 }))
+                        ]),
+                        React.createElement('div', {
+                            key: 'dark-mode-section',
+                            className: 'flex items-center gap-2'
+                        }, [
+                            React.createElement('span', {
+                                key: 'dark-label',
+                                className: `text-xs font-semibold tracking-wide ${darkMode ? 'text-white' : 'text-black'}`,
+                                style: { fontSize: '10px', letterSpacing: '0.01em' }
+                            }, 'Dark Mode'),
+                            React.createElement('button', {
+                                key: 'dark-toggle',
+                                onClick: () => setDarkMode(!darkMode),
+                                className: `relative rounded border transition-colors`,
+                                style: {
+                                    width: '24px',
+                                    height: '24px',
+                                    borderColor: darkMode ? 'white' : 'black',
+                                    backgroundColor: 'white'
+                                }
+                            }, darkMode && React.createElement('div', {
+                                className: 'absolute bg-black rounded',
+                                style: { inset: '4px' }
+                            }))
+                        ])
+                    ]),
+                    // Bottom Row
+                    React.createElement('div', {
+                        key: 'bottom-row',
+                        className: 'flex items-center justify-between'
+                    }, [
+                        React.createElement('div', {
+                            key: 'file-info',
+                            className: 'flex items-center gap-2'
+                        }, [
+                            React.createElement(Icon, { key: 'file-icon', name: 'File', size: 16, className: darkMode ? 'text-white' : 'text-black' }),
+                            React.createElement('span', {
+                                key: 'file-text',
+                                className: `text-xs font-semibold tracking-wide ${darkMode ? 'text-white' : 'text-black'}`,
+                                style: { fontSize: '10px', letterSpacing: '0.01em' }
+                            }, currentProject ? `Editando: ${currentProject.name}` : 'Sin proyecto cargado')
+                        ]),
+                        React.createElement('div', {
+                            key: 'button-deck',
+                            className: 'flex items-center gap-4'
+                        }, [
+                            React.createElement('button', {
+                                key: 'btn-simple',
+                                className: `flex items-center gap-2 text-xs font-semibold tracking-wide border transition-colors ${darkMode ? 'border-white text-white hover:bg-gray-700' : 'border-black text-black hover:bg-gray-50'}`,
+                                style: { padding: '4px 8px', fontSize: '10px', letterSpacing: '0.01em' },
+                                onClick: () => alert('¡Funciona! Versión simplificada del editor.')
+                            }, [
+                                React.createElement(Icon, { key: 'btn-icon', name: 'FolderOpen', size: 16 }),
+                                'Editor Simplificado'
+                            ])
+                        ])
+                    ])
+                ]),
                 
-                if (!variable) return;
-
-                if (value.length <= variable.charLimit) {
-                    updateVariableValue(variableId, mode, value);
-                } else {
-                    const truncatedValue = value.substring(0, variable.charLimit);
-                    updateVariableValue(variableId, mode, truncatedValue);
+                // Main Content
+                React.createElement('div', {
+                    key: 'content',
+                    style: { margin: '24px', padding: '24px' },
+                    className: `${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-sm border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`
+                }, [
+                    React.createElement('h2', {
+                        key: 'content-title',
+                        className: `text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`
+                    }, 'Variables de Texto'),
                     
-                    e.target.style.borderColor = '#FF4444';
-                    setTimeout(() => {
-                        if (e.target) {
-                            e.target.style.borderColor = '';
-                        }
-                    }, 300);
-                }
-            };
-
-            // Drag and drop handlers
-            const handleDragStart = (e, index) => {
-                setDraggedItem(index);
-                e.dataTransfer.effectAllowed = 'move';
-            };
-
-            const handleDragOver = (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-            };
-
-            const handleDrop = (e, dropIndex) => {
-                e.preventDefault();
-                if (draggedItem === null) return;
-
-                const newVariables = [...variables];
-                const draggedVariable = newVariables[draggedItem];
-                newVariables.splice(draggedItem, 1);
-                newVariables.splice(dropIndex, 0, draggedVariable);
-                
-                setVariables(newVariables);
-                setDraggedItem(null);
-            };
-
-            // Export JSON
-            const exportJSON = () => {
-                try {
-                    const jsonData = {
-                        collections: [{
-                            name: collectionName,
-                            modes: modes,
-                            variables: variables.reduce((acc, variable) => {
-                                acc[variable.name] = {
-                                    type: 'string',
-                                    values: variable.values
-                                };
-                                return acc;
-                            }, {})
-                        }]
-                    };
-
-                    const jsonString = JSON.stringify(jsonData, null, 4);
-                    const blob = new Blob([jsonString], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${collectionName.toLowerCase().replace(/\s+/g, '-')}.json`;
-                    a.style.display = 'none';
-                    
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    
-                } catch (error) {
-                    const jsonData = {
-                        collections: [{
-                            name: collectionName,
-                            modes: modes,
-                            variables: variables.reduce((acc, variable) => {
-                                acc[variable.name] = {
-                                    type: 'string',
-                                    values: variable.values
-                                };
-                                return acc;
-                            }, {})
-                        }]
-                    };
-                    
-                    const jsonString = JSON.stringify(jsonData, null, 4);
-                    const newWindow = window.open();
-                    newWindow.document.write(`<pre>${jsonString}</pre>`);
-                    newWindow.document.title = 'Figma Variables JSON';
-                    alert('JSON mostrado en ventana nueva - copia el contenido');
-                }
-                setShowExportMenu(false);
-            };
-
-            // Export to Excel
-            const exportExcel = () => {
-                try {
-                    const wb = XLSX.utils.book_new();
-                    
-                    const headers = ['Variable Name', 'Character Limit', ...modes];
-                    const data = [headers];
-                    
-                    variables.forEach(variable => {
-                        const row = [
-                            variable.name,
-                            variable.charLimit,
-                            ...modes.map(mode => variable.values[mode] || '')
-                        ];
-                        data.push(row);
-                    });
-                    
-                    const ws = XLSX.utils.aoa_to_sheet(data);
-                    
-                    const colWidths = [
-                        { wch: 25 },
-                        { wch: 15 },
-                        ...modes.map(() => ({ wch: 30 }))
-                    ];
-                    ws['!cols'] = colWidths;
-                    
-                    XLSX.utils.book_append_sheet(wb, ws, 'Variables');
-                    XLSX.writeFile(wb, `${collectionName.toLowerCase().replace(/\s+/g, '-')}.xlsx`);
-                    
-                } catch (error) {
-                    alert('Error al exportar Excel: ' + error.message);
-                }
-                setShowExportMenu(false);
-            };
-
-            // Import from Excel
-            const importExcel = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const data = new Uint8Array(event.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        
-                        const worksheetName = workbook.SheetNames[0];
-                        const worksheet = workbook.Sheets[worksheetName];
-                        
-                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                        
-                        if (jsonData.length < 2) {
-                            alert('El archivo Excel debe tener al menos una fila de encabezados y una fila de datos');
-                            return;
-                        }
-                        
-                        const headers = jsonData[0];
-                        const variableName = headers[0];
-                        const charLimitCol = headers[1];
-                        const languageCols = headers.slice(2);
-                        
-                        if (!variableName || !charLimitCol || languageCols.length === 0) {
-                            alert('Formato incorrecto. Debe tener: Variable Name, Character Limit, y al menos un idioma');
-                            return;
-                        }
-                        
-                        setModes(languageCols);
-                        
-                        const newVariables = jsonData.slice(1).map((row, index) => {
-                            if (!row[0]) return null;
+                    // Variables List
+                    ...variables.map((variable, index) => 
+                        React.createElement('div', {
+                            key: variable.id,
+                            className: `p-4 mb-4 border rounded ${darkMode ? 'border-gray-600 bg-gray-700' : 'border-gray-200 bg-gray-50'}`
+                        }, [
+                            React.createElement('div', {
+                                key: 'var-header',
+                                className: 'flex items-center justify-between mb-3'
+                            }, [
+                                React.createElement('input', {
+                                    key: 'var-name',
+                                    type: 'text',
+                                    value: variable.name,
+                                    onChange: (e) => updateVariableName(variable.id, e.target.value),
+                                    className: `font-bold text-sm px-2 py-1 border rounded ${darkMode ? 'bg-gray-600 text-white border-gray-500' : 'bg-white text-black border-gray-300'}`,
+                                    placeholder: 'nombre-variable'
+                                }),
+                                React.createElement('button', {
+                                    key: 'var-delete',
+                                    onClick: () => removeVariable(variable.id),
+                                    className: `text-red-500 hover:text-red-700 px-2 py-1`,
+                                    title: 'Eliminar variable'
+                                }, React.createElement(Icon, { name: 'Trash2', size: 16 }))
+                            ]),
                             
-                            const charLimit = parseInt(row[1]) || 50;
-                            const values = {};
-                            
-                            languageCols.forEach((lang, langIndex) => {
-                                const value = row[2 + langIndex] || '';
-                                values[lang] = value.length > charLimit ? value.substring(0, charLimit) : value;
-                            });
-                            
-                            return {
-                                id: index.toString(),
-                                name: row[0] || `variable-${index + 1}`,
-                                charLimit,
-                                values
-                            };
-                        }).filter(Boolean);
-                        
-                        setVariables(newVariables);
-                        setCurrentProject(null);
-                        alert('Excel importado exitosamente!');
-                        
-                    } catch (error) {
-                        alert('Error al importar Excel: ' + error.message);
-                    }
-                };
-                reader.readAsArrayBuffer(file);
-                e.target.value = '';
-                setShowImportMenu(false);
-            };
-
-            // Save changes to current project
-            const saveCurrentProject = () => {
-                if (!currentProject) return;
-
-                const updatedProject = {
-                    ...currentProject,
-                    collectionName,
-                    modes,
-                    variables: variables.map(v => ({
-                        name: v.name,
-                        charLimit: v.charLimit,
-                        values: { ...v.values }
-                    })),
-                    updatedAt: new Date().toLocaleDateString()
-                };
-
-                if (currentProject.type === 'project') {
-                    const updatedProjects = savedProjects.map(p => p.id === currentProject.id ? updatedProject : p);
-                    setSavedProjects(updatedProjects);
-                    localStorage.setItem('figma-projects', JSON.stringify(updatedProjects));
-                } else {
-                    const updatedTemplates = savedTemplates.map(t => t.id === currentProject.id ? updatedProject : t);
-                    setSavedTemplates(updatedTemplates);
-                    localStorage.setItem('figma-templates', JSON.stringify(updatedTemplates));
-                }
-
-                setCurrentProject(updatedProject);
-                alert(`${currentProject.type === 'template' ? 'Template' : 'Proyecto'} "${currentProject.name}" actualizado!`);
-            };
-
-            // Save as template (structure only)
-            const saveTemplate = () => {
-                if (!templateName.trim()) {
-                    alert('Por favor ingresa un nombre para el template');
-                    return;
-                }
-
-                const existingTemplate = savedTemplates.find(t => t.name === templateName);
-                
-                if (existingTemplate) {
-                    const shouldOverwrite = confirm(`Ya existe un template llamado "${templateName}". ¿Quieres sobreescribirlo?`);
-                    if (!shouldOverwrite) {
-                        return;
-                    }
-                }
-
-                const template = {
-                    id: existingTemplate ? existingTemplate.id : Date.now().toString(),
-                    name: templateName,
-                    type: 'template',
-                    collectionName,
-                    modes,
-                    variables: variables.map(v => ({
-                        name: v.name,
-                        charLimit: v.charLimit,
-                        values: Object.keys(v.values).reduce((acc, mode) => ({ ...acc, [mode]: '' }), {})
-                    })),
-                    createdAt: existingTemplate ? existingTemplate.createdAt : new Date().toLocaleDateString(),
-                    updatedAt: new Date().toLocaleDateString()
-                };
-
-                let updatedTemplates;
-                if (existingTemplate) {
-                    updatedTemplates = savedTemplates.map(t => t.id === existingTemplate.id ? template : t);
-                } else {
-                    updatedTemplates = [...savedTemplates, template];
-                }
-
-                setSavedTemplates(updatedTemplates);
-                localStorage.setItem('figma-templates', JSON.stringify(updatedTemplates));
-                
-                setTemplateName('');
-                setShowTemplateModal(false);
-                
-                alert(`Template "${template.name}" ${existingTemplate ? 'actualizado' : 'guardado'} exitosamente!`);
-            };
-
-            // Save as project (with all values)
-            const saveProject = () => {
-                if (!projectName.trim()) {
-                    alert('Por favor ingresa un nombre para el proyecto');
-                    return;
-                }
-
-                const existingProject = savedProjects.find(p => p.name === projectName);
-                
-                if (existingProject) {
-                    const shouldOverwrite = confirm(`Ya existe un proyecto llamado "${projectName}". ¿Quieres sobreescribirlo?`);
-                    if (!shouldOverwrite) {
-                        return;
-                    }
-                }
-
-                const project = {
-                    id: existingProject ? existingProject.id : Date.now().toString(),
-                    name: projectName,
-                    type: 'project',
-                    collectionName,
-                    modes,
-                    variables: variables.map(v => ({
-                        name: v.name,
-                        charLimit: v.charLimit,
-                        values: { ...v.values }
-                    })),
-                    createdAt: existingProject ? existingProject.createdAt : new Date().toLocaleDateString(),
-                    updatedAt: new Date().toLocaleDateString()
-                };
-
-                let updatedProjects;
-                if (existingProject) {
-                    updatedProjects = savedProjects.map(p => p.id === existingProject.id ? project : p);
-                } else {
-                    updatedProjects = [...savedProjects, project];
-                }
-
-                setSavedProjects(updatedProjects);
-                localStorage.setItem('figma-projects', JSON.stringify(updatedProjects));
-                
-                setCurrentProject(project);
-                setProjectName('');
-                setShowProjectModal(false);
-                
-                alert(`Proyecto "${project.name}" ${existingProject ? 'actualizado' : 'guardado'} exitosamente!`);
-            };
-
-            // Load item (template or project)
-            const loadItem = (item) => {
-                setCollectionName(item.collectionName);
-                setModes(item.modes);
-                
-                const newVariables = item.variables.map((v, index) => ({
-                    ...v,
-                    id: index.toString(),
-                    values: item.modes.reduce((acc, mode) => ({
-                        ...acc,
-                        [mode]: v.values[mode] || ''
-                    }), {})
-                }));
-                
-                setVariables(newVariables);
-                setCurrentProject(item);
-                
-                alert(`${item.type === 'template' ? 'Template' : 'Proyecto'} "${item.name}" cargado!`);
-            };
-
-            // Delete item
-            const deleteItem = (itemId, type) => {
-                if (confirm(`¿Estás seguro de eliminar este ${type === 'template' ? 'template' : 'proyecto'}?`)) {
-                    if (type === 'template') {
-                        const updatedTemplates = savedTemplates.filter(t => t.id !== itemId);
-                        setSavedTemplates(updatedTemplates);
-                        localStorage.setItem('figma-templates', JSON.stringify(updatedTemplates));
-                    } else {
-                        const updatedProjects = savedProjects.filter(p => p.id !== itemId);
-                        setSavedProjects(updatedProjects);
-                        localStorage.setItem('figma-projects', JSON.stringify(updatedProjects));
-                    }
+                            React.createElement('div', {
+                                key: 'var-modes',
+                                className: 'grid gap-3',
+                                style: { gridTemplateColumns: `repeat(${modes.length}, 1fr)` }
+                            }, modes.map(mode => 
+                                React.createElement('div', {
+                                    key: mode,
+                                    className: 'space-y-2'
+                                }, [
+                                    React.createElement('label', {
+                                        key: 'mode-label',
+                                        className: `block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`
+                                    }, mode),
+                                    React.createElement('textarea', {
+                                        key: 'mode-input',
+                                        value: variable.values[mode] || '',
+                                        onChange: (e) => updateVariableValue(variable.id, mode, e.target.value),
+                                        maxLength: variable.charLimit,
+                                        className: `w-full px-3 py-2 text-sm border rounded resize-none ${darkMode ? 'bg-gray-600 text-white border-gray-500' : 'bg-white text-black border-gray-300'}`,
+                                        rows: 2,
+                                        placeholder: `Texto en ${mode}...`
+                                    }),
+                                    React.createElement('div', {
+                                        key: 'mode-counter',
+                                        className: 'text-xs',
+                                        style: getCountColor((variable.values[mode] || '').length, variable.charLimit)
+                                    }, `${(variable.values[mode] || '').length}/${variable.charLimit}`)
+                                ])
+                            ))
+                        ])
+                    ),
                     
-                    if (currentProject && currentProject.id === itemId) {
-                        setCurrentProject(null);
-                    }
-                }
-            };
-
-            // Import JSON
-            const importJSON = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const data = JSON.parse(event.target.result);
-                        const collection = data.collections[0];
-                        
-                        setCollectionName(collection.name);
-                        setModes(collection.modes);
-                        
-                        const newVariables = Object.entries(collection.variables).map(([name, variable], index) => ({
-                            id: index.toString(),
-                            name,
-                            values: collection.modes.reduce((acc, mode) => ({
-                                ...acc,
-                                [mode]: variable.values[mode] || ''
-                            }), {}),
-                            charLimit: 50
-                        }));
-                        
-                        setVariables(newVariables);
-                        setCurrentProject(null);
-                        alert('JSON importado exitosamente!');
-                    } catch (error) {
-                        alert('Error al importar JSON: ' + error.message);
-                    }
-                };
-                reader.readAsText(file);
-                e.target.value = '';
-                setShowImportMenu(false);
-            };
-
-            return (
-                <div className={`min-h-screen transition-colors duration-200 ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-                    <div className="max-w-7xl mx-auto">
-                        {/* MINIMAL HEADER */}
-                        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} px-6 py-4`}>
-                            {/* Top Row - Project Name and Dark Mode */}
-                            <div className="flex items-center justify-between mb-8">
-                                <div className="flex items-center gap-2">
-                                    {editingProjectName ? (
-                                        <input
-                                            type="text"
-                                            value={collectionName}
-                                            onChange={(e) => setCollectionName(e.target.value)}
-                                            onBlur={() => setEditingProjectName(false)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    setEditingProjectName(false);
-                                                }
-                                            }}
-                                            className={`text-2xl font-medium tracking-wide bg-transparent border-none outline-none ${darkMode ? 'text-white' : 'text-black'}`}
-                                            autoFocus
-                                        />
-                                    ) : (
-                                        <h1 
-                                            className={`text-2xl font-medium tracking-wide cursor-pointer ${darkMode ? 'text-white' : 'text-black'}`}
-                                            onClick={() => setEditingProjectName(true)}
-                                        >
-                                            {collectionName}
-                                        </h1>
-                                    )}
-                                    <button
-                                        onClick={() => setEditingProjectName(true)}
-                                        className={`${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-black'} transition-colors`}
-                                    >
-                                        <Edit size={16} />
-                                    </button>
-                                </div>
-                                
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-xs font-semibold tracking-wide ${darkMode ? 'text-white' : 'text-black'}`}>
-                                        Dark Mode
-                                    </span>
-                                    <button
-                                        onClick={() => setDarkMode(!darkMode)}
-                                        className={`relative w-6 h-6 rounded border ${darkMode ? 'border-white bg-white' : 'border-black bg-white'} transition-colors`}
-                                    >
-                                        {darkMode && (
-                                            <div className="absolute inset-1 bg-black rounded"></div>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            {/* Bottom Row - File Info and Button Deck */}
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <File size={16} className={darkMode ? 'text-white' : 'text-black'} />
-                                    <span className={`text-xs font-semibold tracking-wide ${darkMode ? 'text-white' : 'text-black'}`}>
-                                        {currentProject ? `Editando: ${currentProject.name}` : 'Sin proyecto cargado'}
-                                    </span>
-                                </div>
-                                
-                                {/* Button Deck */}
-                                <div className="flex items-center gap-4">
-                                    {/* Open */}
-                                    <button
-                                        onClick={() => setShowOpenModal(true)}
-                                        className={`flex items-center gap-2 px-2 py-1 text-xs font-semibold tracking-wide border ${darkMode ? 'border-white text-white hover:bg-gray-700' : 'border-black text-black hover:bg-gray-50'} transition-colors`}
-                                    >
-                                        <FolderOpen size={16} />
-                                        Open
-                                    </button>
-
-                                    {/* Save - only if project active */}
-                                    {currentProject && (
-                                        <button
-                                            onClick={saveCurrentProject}
-                                            className={`flex items-center gap-2 px-2 py-1 text-xs font-semibold tracking-wide border ${darkMode ? 'border-white text-white hover:bg-gray-700' : 'border-black text-black hover:bg-gray-50'} transition-colors`}
-                                        >
-                                            <Save size={16} />
-                                            Save
-                                        </button>
-                                    )}
-
-                                    {/* Save Template */}
-                                    <button
-                                        onClick={() => setShowTemplateModal(true)}
-                                        className={`flex items-center gap-2 px-2 py-1 text-xs font-semibold tracking-wide border ${darkMode ? 'border-white text-white hover:bg-gray-700' : 'border-black text-black hover:bg-gray-50'} transition-colors`}
-                                    >
-                                        <Save size={16} />
-                                        Save Template
-                                    </button>
-
-                                    {/* Load Template */}
-                                    <button
-                                        onClick={() => setShowOpenTemplateModal(true)}
-                                        className={`flex items-center gap-2 px-2 py-1 text-xs font-semibold tracking-wide border ${darkMode ? 'border-white text-white hover:bg-gray-700' : 'border-black text-black hover:bg-gray-50'} transition-colors`}
-                                    >
-                                        <FolderOpen size={16} />
-                                        Load template
-                                    </button>
-
-                                    {/* Import */}
-                                    <div className="relative">
-                                        <button
-                                            onClick={() => setShowImportMenu(!showImportMenu)}
-                                            className={`flex items-center gap-2 px-2 py-1 text-xs font-semibold tracking-wide border ${darkMode ? 'border-white text-white hover:bg-gray-700' : 'border-black text-black hover:bg-gray-50'} transition-colors`}
-                                        >
-                                            <Upload size={16} />
-                                            Import
-                                            <ChevronDown size={12} />
-                                        </button>
-                                        {showImportMenu && (
-                                            <div className={`absolute right-0 top-full mt-1 w-48 ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-200'} border rounded shadow-lg z-10`}>
-                                                <button
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                    className={`w-full text-left px-3 py-2 text-xs font-semibold ${darkMode ? 'text-white hover:bg-gray-700' : 'text-black hover:bg-gray-50'}`}
-                                                >
-                                                    📄 Import JSON
-                                                </button>
-                                                <button
-                                                    onClick={() => excelInputRef.current?.click()}
-                                                    className={`w-full text-left px-3 py-2 text-xs font-semibold ${darkMode ? 'text-white hover:bg-gray-700' : 'text-black hover:bg-gray-50'}`}
-                                                >
-                                                    📊 Import Excel/Numbers
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Export */}
-                                    <div className="relative">
-                                        <button
-                                            onClick={() => setShowExportMenu(!showExportMenu)}
-                                            className={`flex items-center gap-2 px-2 py-1 text-xs font-semibold tracking-wide border ${darkMode ? 'border-white text-white hover:bg-gray-700' : 'border-black text-black hover:bg-gray-50'} transition-colors`}
-                                        >
-                                            <Download size={16} />
-                                            Export
-                                            <ChevronDown size={12} />
-                                        </button>
-                                        {showExportMenu && (
-                                            <div className={`absolute right-0 top-full mt-1 w-48 ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-200'} border rounded shadow-lg z-10`}>
-                                                <button
-                                                    onClick={exportJSON}
-                                                    className={`w-full text-left px-3 py-2 text-xs font-semibold ${darkMode ? 'text-white hover:bg-gray-700' : 'text-black hover:bg-gray-50'}`}
-                                                >
-                                                    📄 Export JSON
-                                                </button>
-                                                <button
-                                                    onClick={exportExcel}
-                                                    className={`w-full text-left px-3 py-2 text-xs font-semibold ${darkMode ? 'text-white hover:bg-gray-700' : 'text-black hover:bg-gray-50'}`}
-                                                >
-                                                    📊 Export Excel/Numbers
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Hidden file inputs */}
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept=".json"
-                                onChange={importJSON}
-                                className="hidden"
-                            />
-                            <input
-                                ref={excelInputRef}
-                                type="file"
-                                accept=".xlsx,.xls"
-                                onChange={importExcel}
-                                className="hidden"
-                            />
-                        </div>
-
-                        {/* Table */}
-                        <div className={`mx-6 mt-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-sm border ${darkMode ? 'border-gray-700' : 'border-gray-200'} overflow-hidden`}>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className={`${darkMode ? 'bg-gray-700' : 'bg-gray-50'} border-b ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
-                                        <tr>
-                                            <th className="w-8 px-4 py-3"></th>
-                                            <th className={`text-left px-4 py-3 text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'} min-w-48`}>
-                                                Variable Name
-                                            </th>
-                                            {modes.map(mode => (
-                                                <th key={mode} className={`text-left px-4 py-3 text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'} min-w-64 relative group`}>
-                                                    <div className="flex items-center justify-between">
-                                                        <span>{mode}</span>
-                                                        {modes.length > 1 && (
-                                                            <button
-                                                                onClick={() => removeMode(mode)}
-                                                                className={`opacity-0 group-hover:opacity-100 ${darkMode ? 'text-gray-400 hover:text-red-400' : 'text-gray-400 hover:text-red-500'} transition-all`}
-                                                            >
-                                                                <Trash2 size={14} />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </th>
-                                            ))}
-                                            <th className="w-16 px-4 py-3">
-                                                <button
-                                                    onClick={addMode}
-                                                    className={`flex items-center justify-center w-8 h-8 ${darkMode ? 'text-gray-400 hover:text-white hover:bg-gray-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'} rounded transition-colors`}
-                                                >
-                                                    <Plus size={16} />
-                                                </button>
-                                            </th>
-                                            <th className="w-16 px-4 py-3"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {variables.map((variable, index) => (
-                                            <tr
-                                                key={variable.id}
-                                                className={`border-b ${darkMode ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'} transition-colors`}
-                                                draggable
-                                                onDragStart={(e) => handleDragStart(e, index)}
-                                                onDragOver={handleDragOver}
-                                                onDrop={(e) => handleDrop(e, index)}
-                                            >
-                                                <td className="px-4 py-3">
-                                                    <div className={`cursor-move ${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-600'}`}>
-                                                        <GripVertical size={16} />
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <input
-                                                        type="text"
-                                                        value={variable.name || ''}
-                                                        onChange={(e) => updateVariableName(variable.id, e.target.value)}
-                                                        className={`w-full px-3 py-2 text-sm font-bold border rounded focus:outline-none focus:ring-2 ${darkMode ? 'bg-gray-700 text-white border-gray-600 focus:ring-gray-500' : 'bg-white text-black border-gray-300 focus:ring-gray-300'} ${getFieldBorderClass(variable.name)}`}
-                                                        placeholder="variable-name"
-                                                    />
-                                                </td>
-                                                {modes.map((mode, modeIndex) => (
-                                                    <td key={mode} className="px-4 py-3">
-                                                        <div className="space-y-2">
-                                                            <textarea
-                                                                value={variable.values[mode] || ''}
-                                                                onChange={(e) => handleTextareaChange(e, variable.id, mode)}
-                                                                maxLength={variable.charLimit}
-                                                                className={`w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 resize-none ${darkMode ? 'bg-gray-700 text-white border-gray-600 focus:ring-gray-500' : 'bg-white text-black border-gray-300 focus:ring-gray-300'} ${getFieldBorderClass(variable.values[mode], variable.charLimit)}`}
-                                                                rows="2"
-                                                                placeholder={`Texto en ${mode} (máx ${variable.charLimit})`}
-                                                                title={`Máximo ${variable.charLimit} caracteres`}
-                                                            />
-                                                            <div className="flex items-center justify-between text-xs">
-                                                                <span className={getCountColor(
-                                                                    (variable.values[mode] || '').length,
-                                                                    variable.charLimit
-                                                                )}>
-                                                                    {(variable.values[mode] || '').length}/{variable.charLimit}
-                                                                    {(variable.values[mode] || '').length >= variable.charLimit && ' ⚠️'}
-                                                                </span>
-                                                                {modeIndex === 0 && (
-                                                                    editingLimit === variable.id ? (
-                                                                        <input
-                                                                            type="number"
-                                                                            defaultValue={variable.charLimit}
-                                                                            onBlur={(e) => updateLimit(variable.id, e.target.value)}
-                                                                            onKeyDown={(e) => {
-                                                                                if (e.key === 'Enter') {
-                                                                                    updateLimit(variable.id, e.target.value);
-                                                                                }
-                                                                            }}
-                                                                            className={`w-16 px-1 py-0 text-xs border rounded ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-black border-gray-300'}`}
-                                                                            autoFocus
-                                                                            min="1"
-                                                                            max="500"
-                                                                        />
-                                                                    ) : (
-                                                                        <button
-                                                                            onClick={() => setEditingLimit(variable.id)}
-                                                                            className={`${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-600'}`}
-                                                                            title="Editar límite de caracteres"
-                                                                        >
-                                                                            <Settings size={12} />
-                                                                        </button>
-                                                                    )
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                ))}
-                                                <td className="px-4 py-3"></td>
-                                                <td className="px-4 py-3">
-                                                    <button
-                                                        onClick={() => removeVariable(variable.id)}
-                                                        className={`${darkMode ? 'text-gray-400 hover:text-red-400' : 'text-gray-400 hover:text-red-500'} transition-colors`}
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                            
-                            <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} p-4`}>
-                                <button
-                                    onClick={addVariable}
-                                    className={`flex items-center gap-2 px-4 py-2 text-sm ${darkMode ? 'text-gray-300 border-gray-600 hover:bg-gray-700' : 'text-gray-600 border-gray-300 hover:bg-gray-50'} border rounded-md transition-colors`}
-                                >
-                                    <Plus size={16} />
-                                    Agregar Variable
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className={`mt-6 text-center text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} pb-6`}>
-                            Editor de Variables de Texto para Figma v6.0 - Minimal Header + Dark Mode
-                        </div>
-
-                        {/* Save Template Modal */}
-                        {showTemplateModal && (
-                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                                <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 w-96 mx-4`}>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>📋 Guardar como Template</h3>
-                                        <button
-                                            onClick={() => {
-                                                setShowTemplateModal(false);
-                                                setTemplateName('');
-                                            }}
-                                            className={`${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-600'}`}
-                                        >
-                                            <X size={20} />
-                                        </button>
-                                    </div>
-                                    
-                                    <div className="mb-4">
-                                        <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
-                                            Nombre del Template
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={templateName}
-                                            onChange={(e) => setTemplateName(e.target.value)}
-                                            placeholder="ej: Landing Page Structure"
-                                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${darkMode ? 'bg-gray-700 text-white border-gray-600 focus:ring-purple-500' : 'bg-white text-black border-gray-300 focus:ring-purple-500'}`}
-                                            autoFocus
-                                        />
-                                    </div>
-                                    
-                                    <div className={`text-sm ${darkMode ? 'text-gray-300 bg-purple-900' : 'text-gray-600 bg-purple-50'} mb-4 p-3 rounded`}>
-                                        <p className="font-medium mb-1">Template = Solo estructura</p>
-                                        <ul className="list-disc list-inside ml-2 space-y-1">
-                                            <li>Variables y configuración de límites</li>
-                                            <li>Idiomas/modos configurados</li>
-                                            <li><strong>Textos se vacían</strong> (reutilizable)</li>
-                                        </ul>
-                                    </div>
-                                    
-                                    <div className="flex gap-3 justify-end">
-                                        <button
-                                            onClick={() => {
-                                                setShowTemplateModal(false);
-                                                setTemplateName('');
-                                            }}
-                                            className={`px-4 py-2 text-sm ${darkMode ? 'text-gray-300 border-gray-600 hover:bg-gray-700' : 'text-gray-600 border-gray-300 hover:bg-gray-50'} border rounded-md transition-colors`}
-                                        >
-                                            Cancelar
-                                        </button>
-                                        <button
-                                            onClick={saveTemplate}
-                                            className="px-4 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-                                        >
-                                            Guardar Template
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Save Project Modal */}
-                        {showProjectModal && (
-                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                                <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 w-96 mx-4`}>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>💾 Guardar Proyecto</h3>
-                                        <button
-                                            onClick={() => {
-                                                setShowProjectModal(false);
-                                                setProjectName('');
-                                            }}
-                                            className={`${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-600'}`}
-                                        >
-                                            <X size={20} />
-                                        </button>
-                                    </div>
-                                    
-                                    <div className="mb-4">
-                                        <label className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>
-                                            Nombre del Proyecto
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={projectName}
-                                            onChange={(e) => setProjectName(e.target.value)}
-                                            placeholder="ej: Campaign Q1 2024"
-                                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${darkMode ? 'bg-gray-700 text-white border-gray-600 focus:ring-green-500' : 'bg-white text-black border-gray-300 focus:ring-green-500'}`}
-                                            autoFocus
-                                        />
-                                    </div>
-                                    
-                                    <div className={`text-sm ${darkMode ? 'text-gray-300 bg-green-900' : 'text-gray-600 bg-green-50'} mb-4 p-3 rounded`}>
-                                        <p className="font-medium mb-1">Proyecto = Estado completo</p>
-                                        <ul className="list-disc list-inside ml-2 space-y-1">
-                                            <li>Toda la estructura + configuración</li>
-                                            <li><strong>Todos los textos incluidos</strong></li>
-                                            <li>Para continuar trabajando después</li>
-                                        </ul>
-                                    </div>
-                                    
-                                    <div className="flex gap-3 justify-end">
-                                        <button
-                                            onClick={() => {
-                                                setShowProjectModal(false);
-                                                setProjectName('');
-                                            }}
-                                            className={`px-4 py-2 text-sm ${darkMode ? 'text-gray-300 border-gray-600 hover:bg-gray-700' : 'text-gray-600 border-gray-300 hover:bg-gray-50'} border rounded-md transition-colors`}
-                                        >
-                                            Cancelar
-                                        </button>
-                                        <button
-                                            onClick={saveProject}
-                                            className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                                        >
-                                            Guardar Proyecto
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Open Projects Modal */}
-                        {showOpenModal && (
-                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                                <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 w-96 mx-4 max-h-96 overflow-y-auto`}>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>💾 Abrir Proyecto</h3>
-                                        <button
-                                            onClick={() => setShowOpenModal(false)}
-                                            className={`${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-600'}`}
-                                        >
-                                            <X size={20} />
-                                        </button>
-                                    </div>
-                                    
-                                    {savedProjects.length === 0 ? (
-                                        <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-center py-4`}>No hay proyectos guardados</p>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            {savedProjects.map(project => (
-                                                <div key={project.id} className={`flex items-center justify-between p-3 ${darkMode ? 'bg-green-900 hover:bg-green-800' : 'bg-green-50 hover:bg-green-100'} rounded border transition-colors`}>
-                                                    <div className="flex-1">
-                                                        <div className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>💾 {project.name}</div>
-                                                        <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                            {project.updatedAt ? `Actualizado: ${project.updatedAt}` : project.createdAt}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            onClick={() => {
-                                                                loadItem(project);
-                                                                setShowOpenModal(false);
-                                                            }}
-                                                            className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
-                                                        >
-                                                            Abrir
-                                                        </button>
-                                                        <button
-                                                            onClick={() => deleteItem(project.id, 'project')}
-                                                            className="px-2 py-1 text-sm text-red-600 hover:text-red-800"
-                                                        >
-                                                            ×
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    
-                                    <div className={`mt-4 pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                                        <button
-                                            onClick={() => {
-                                                setShowOpenModal(false);
-                                                setShowProjectModal(true);
-                                            }}
-                                            className="w-full px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                                        >
-                                            + Guardar Proyecto Actual
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Open Templates Modal */}
-                        {showOpenTemplateModal && (
-                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                                <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-6 w-96 mx-4 max-h-96 overflow-y-auto`}>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>📋 Abrir Template</h3>
-                                        <button
-                                            onClick={() => setShowOpenTemplateModal(false)}
-                                            className={`${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-400 hover:text-gray-600'}`}
-                                        >
-                                            <X size={20} />
-                                        </button>
-                                    </div>
-                                    
-                                    {savedTemplates.length === 0 ? (
-                                        <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-center py-4`}>No hay templates guardados</p>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            {savedTemplates.map(template => (
-                                                <div key={template.id} className={`flex items-center justify-between p-3 ${darkMode ? 'bg-purple-900 hover:bg-purple-800' : 'bg-purple-50 hover:bg-purple-100'} rounded border transition-colors`}>
-                                                    <div className="flex-1">
-                                                        <div className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>📋 {template.name}</div>
-                                                        <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                            {template.updatedAt ? `Actualizado: ${template.updatedAt}` : template.createdAt}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            onClick={() => {
-                                                                loadItem(template);
-                                                                setShowOpenTemplateModal(false);
-                                                            }}
-                                                            className="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700"
-                                                        >
-                                                            Usar
-                                                        </button>
-                                                        <button
-                                                            onClick={() => deleteItem(template.id, 'template')}
-                                                            className="px-2 py-1 text-sm text-red-600 hover:text-red-800"
-                                                        >
-                                                            ×
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            );
+                    React.createElement('button', {
+                        key: 'add-btn',
+                        onClick: addVariable,
+                        className: `flex items-center gap-2 px-4 py-2 text-sm border rounded-md transition-colors ${darkMode ? 'text-gray-300 border-gray-600 hover:bg-gray-700' : 'text-gray-600 border-gray-300 hover:bg-gray-50'}`
+                    }, [
+                        React.createElement(Icon, { key: 'add-icon', name: 'Plus', size: 16 }),
+                        'Agregar Variable'
+                    ])
+                ]),
+                
+                // Footer
+                React.createElement('div', {
+                    key: 'footer',
+                    className: `mt-6 text-center text-sm pb-6 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`
+                }, 'Editor de Variables de Texto para Figma v6.1 - Versión Simplificada')
+            ]);
         };
 
-        ReactDOM.render(<FigmaVariablesEditor />, document.getElementById('root'));
+        try {
+            console.log('🎬 Iniciando ReactDOM...');
+            
+            // Hide loading
+            document.getElementById('loading').style.display = 'none';
+            
+            // Render
+            ReactDOM.render(
+                React.createElement(FigmaVariablesEditor),
+                document.getElementById('root')
+            );
+            
+            console.log('✅ Editor cargado exitosamente!');
+            
+        } catch (error) {
+            console.error('❌ Error al cargar:', error);
+            document.getElementById('loading').innerHTML = `❌ Error: ${error.message}`;
+        }
     </script>
 </body>
 </html>
