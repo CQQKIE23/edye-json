@@ -3,657 +3,1202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edye - Editor de Variables de Texto para Figma</title>
+    <title>Editor de Variables de Texto para Figma</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8fafc;
-            color: #1f2937;
-            line-height: 1.5;
-        }
-        
-        body.dark {
-            background: #2c2c2c;
-            color: #ffffff;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
-        
-        /* Header */
-        .header {
-            background: white;
-            border-bottom: 1px solid #e5e7eb;
-            padding: 16px 0;
-        }
-        
-        .dark .header {
-            background: #374151;
-            border-color: #4b5563;
-        }
-        
-        .header-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 32px;
-        }
-        
-        .project-title {
-            font-size: 27px;
-            font-weight: 500;
-            letter-spacing: 0.01em;
-            cursor: pointer;
-            padding: 4px 8px;
-            border: 2px solid transparent;
-            border-radius: 4px;
-        }
-        
-        .project-title:hover {
-            border-color: #d1d5db;
-        }
-        
-        .dark-mode-toggle {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .dark-mode-label {
-            font-size: 10px;
-            font-weight: 600;
-            letter-spacing: 0.01em;
-        }
-        
-        .toggle-btn {
-            width: 24px;
-            height: 24px;
-            border: 1px solid currentColor;
-            background: white;
-            cursor: pointer;
-            position: relative;
-        }
-        
-        .toggle-btn.active::after {
-            content: '';
-            position: absolute;
-            inset: 4px;
-            background: black;
-        }
-        
-        .dark .toggle-btn.active::after {
-            background: white;
-        }
-        
-        .header-bottom {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .file-info {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 10px;
-            font-weight: 600;
-            letter-spacing: 0.01em;
-        }
-        
-        .button-deck {
-            display: flex;
-            gap: 16px;
-        }
-        
-        .btn {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 4px 8px;
-            font-size: 10px;
-            font-weight: 600;
-            letter-spacing: 0.01em;
-            border: 1px solid currentColor;
-            background: transparent;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        
-        .btn:hover {
-            background: rgba(0,0,0,0.1);
-        }
-        
-        .dark .btn:hover {
-            background: rgba(255,255,255,0.1);
-        }
-        
-        /* Main Content */
-        .main-content {
-            margin: 24px 0;
-        }
-        
-        .editor-card {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        .dark .editor-card {
-            background: #374151;
-            border-color: #4b5563;
-        }
-        
-        /* Table */
-        .table-container {
-            overflow-x: auto;
-        }
-        
-        .variables-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        .table-header {
-            background: #f9fafb;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        
-        .dark .table-header {
-            background: #4b5563;
-            border-color: #6b7280;
-        }
-        
-        .table-header th {
-            padding: 12px 16px;
-            text-align: left;
-            font-size: 14px;
-            font-weight: 500;
-            color: #374151;
-        }
-        
-        .dark .table-header th {
-            color: #f9fafb;
-        }
-        
-        .variable-row {
-            border-bottom: 1px solid #f3f4f6;
-        }
-        
-        .dark .variable-row {
-            border-color: #4b5563;
-        }
-        
-        .variable-row:hover {
-            background: #f9fafb;
-        }
-        
-        .dark .variable-row:hover {
-            background: #4b5563;
-        }
-        
-        .variable-row td {
-            padding: 12px 16px;
-            vertical-align: top;
-        }
-        
-        .variable-input {
-            width: 100%;
-            padding: 8px 12px;
-            font-size: 14px;
-            font-weight: bold;
-            border: 1px solid #d1d5db;
-            border-radius: 4px;
-            background: white;
-        }
-        
-        .dark .variable-input {
-            background: #4b5563;
-            border-color: #6b7280;
-            color: white;
-        }
-        
-        .text-area {
-            width: 100%;
-            padding: 8px 12px;
-            font-size: 14px;
-            border: 1px solid #d1d5db;
-            border-radius: 4px;
-            background: white;
-            resize: none;
-            rows: 2;
-        }
-        
-        .dark .text-area {
-            background: #4b5563;
-            border-color: #6b7280;
-            color: white;
-        }
-        
-        .char-counter {
-            font-size: 12px;
-            color: #6b7280;
-            margin-top: 4px;
-        }
-        
-        .char-warning {
-            color: #f59e0b;
-            font-weight: 600;
-        }
-        
-        .char-error {
-            color: #ef4444;
-            font-weight: bold;
-        }
-        
-        .add-btn {
-            margin: 16px;
-            padding: 8px 16px;
-            font-size: 14px;
-            border: 1px solid #d1d5db;
-            border-radius: 4px;
-            background: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .dark .add-btn {
-            background: #4b5563;
-            border-color: #6b7280;
-            color: white;
-        }
-        
-        .delete-btn {
-            color: #ef4444;
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 4px;
-            font-size: 16px;
-        }
-        
-        .footer {
-            text-align: center;
-            padding: 24px;
-            font-size: 12px;
-            color: #6b7280;
-        }
-        
-        .modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 50;
-        }
-        
-        .modal-content {
-            background: white;
-            padding: 24px;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 400px;
-        }
-        
-        .dark .modal-content {
-            background: #374151;
-        }
-        
-        .modal-input {
-            width: 100%;
-            padding: 8px 12px;
-            margin: 8px 0;
-            border: 1px solid #d1d5db;
-            border-radius: 4px;
-        }
-        
-        .dark .modal-input {
-            background: #4b5563;
-            border-color: #6b7280;
-            color: white;
-        }
-        
-        .modal-buttons {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-            margin-top: 16px;
-        }
-        
+        body { font-family: 'Inter', sans-serif; }
         .empty-field {
-            border-color: #ff6600 !important;
+            border-color: #FF6600 !important;
             border-width: 2px !important;
         }
-        
         .near-limit {
-            border-color: #f59e0b !important;
+            border-color: #FFA500 !important;
             border-width: 2px !important;
         }
-        
         .at-limit {
-            border-color: #ef4444 !important;
+            border-color: #FF4444 !important;
             border-width: 2px !important;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <div class="header-top">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <div class="project-title" id="projectTitle" onclick="editTitle()">Bnp Projects</div>
-                    <span style="font-size: 16px; color: #6b7280; cursor: pointer;" onclick="editTitle()">✏️</span>
-                </div>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        // Icons
+        const GripVertical = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="9" cy="12" r="1"></circle>
+                <circle cx="9" cy="5" r="1"></circle>
+                <circle cx="9" cy="19" r="1"></circle>
+                <circle cx="15" cy="12" r="1"></circle>
+                <circle cx="15" cy="5" r="1"></circle>
+                <circle cx="15" cy="19" r="1"></circle>
+            </svg>
+        );
+
+        const Plus = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        );
+
+        const Trash2 = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3,6 5,6 21,6"></polyline>
+                <path d="m19,6v14a2,2 0 0,1-2,2H7a2,2 0 0,1-2-2V6m3,0V4a2,2 0 0,1,2-2h4a2,2 0 0,1,2,2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+        );
+
+        const Download = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7,10 12,15 17,10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+        );
+
+        const Upload = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17,8 12,3 7,8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+        );
+
+        const Settings = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="m12 1 1.4 1.4a2 2 0 0 0 1.4.6h2a2 2 0 0 1 2 2v2a2 2 0 0 0 .6 1.4L21 12l-1.4 1.4a2 2 0 0 0-.6 1.4v2a2 2 0 0 1-2 2h-2a2 2 0 0 0-1.4.6L12 23l-1.4-1.4a2 2 0 0 0-1.4-.6H7a2 2 0 0 1-2-2v-2a2 2 0 0 0-.6-1.4L3 12l1.4-1.4a2 2 0 0 0 .6-1.4V7a2 2 0 0 1 2-2h2a2 2 0 0 0 1.4-.6L12 1Z"></path>
+            </svg>
+        );
+
+        const FolderOpen = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                <path d="M2 6h20v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z"></path>
+            </svg>
+        );
+
+        const Save = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17,21 17,13 7,13 7,21"></polyline>
+                <polyline points="7,3 7,8 15,8"></polyline>
+            </svg>
+        );
+
+        const X = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        );
+
+        const ChevronDown = ({ size = 24 }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="6,9 12,15 18,9"></polyline>
+            </svg>
+        );
+
+        const FigmaVariablesEditor = () => {
+            const [collectionName, setCollectionName] = useState('Languages');
+            const [modes, setModes] = useState(['SPA', 'POR', 'ENG']);
+            const [variables, setVariables] = useState([
+                {
+                    id: '1',
+                    name: 'kicker',
+                    values: {
+                        'SPA': '¡Exploradores del futuro!',
+                        'POR': 'Exploradores do Futuro!',
+                        'ENG': 'Future Explorers!'
+                    },
+                    charLimit: 50
+                }
+            ]);
+
+            const [draggedItem, setDraggedItem] = useState(null);
+            const [editingLimit, setEditingLimit] = useState(null);
+            const [savedTemplates, setSavedTemplates] = useState([]);
+            const [savedProjects, setSavedProjects] = useState([]);
+            const [showTemplateModal, setShowTemplateModal] = useState(false);
+            const [showProjectModal, setShowProjectModal] = useState(false);
+            const [showOpenModal, setShowOpenModal] = useState(false);
+            const [showOpenTemplateModal, setShowOpenTemplateModal] = useState(false);
+            const [showExportMenu, setShowExportMenu] = useState(false);
+            const [showImportMenu, setShowImportMenu] = useState(false);
+            const [templateName, setTemplateName] = useState('');
+            const [projectName, setProjectName] = useState('');
+            const [currentProject, setCurrentProject] = useState(null);
+            const fileInputRef = useRef(null);
+            const excelInputRef = useRef(null);
+
+            // Load saved data on component mount
+            useEffect(() => {
+                const savedTemplatesData = localStorage.getItem('figma-templates');
+                if (savedTemplatesData) {
+                    setSavedTemplates(JSON.parse(savedTemplatesData));
+                }
                 
-                <div class="dark-mode-toggle">
-                    <span class="dark-mode-label">Dark Mode</span>
-                    <button class="toggle-btn" id="darkToggle" onclick="toggleDark()"></button>
-                </div>
-            </div>
-            
-            <div class="header-bottom">
-                <div class="file-info">
-                    <span>📄</span>
-                    <span id="fileStatus">Sin proyecto cargado</span>
-                </div>
-                
-                <div class="button-deck">
-                    <button class="btn" onclick="openProject()">
-                        <span>📁</span> Open
-                    </button>
-                    <button class="btn" onclick="saveProject()">
-                        <span>💾</span> Save
-                    </button>
-                    <button class="btn" onclick="exportJSON()">
-                        <span>⬇️</span> Export
-                    </button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Main Content -->
-        <div class="main-content">
-            <div class="editor-card">
-                <div class="table-container">
-                    <table class="variables-table">
-                        <thead class="table-header">
-                            <tr>
-                                <th style="width: 200px;">Variable Name</th>
-                                <th id="modeHeaders"></th>
-                                <th style="width: 60px;"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="variablesTable">
-                        </tbody>
-                    </table>
-                </div>
-                
-                <button class="add-btn" onclick="addVariable()">
-                    <span>+</span> Agregar Variable
-                </button>
-            </div>
-        </div>
-    </div>
-    
-    <div class="footer">
-        Editor de Variables de Texto para Figma v6.2 - GitHub Pages Edition
-    </div>
+                const savedProjectsData = localStorage.getItem('figma-projects');
+                if (savedProjectsData) {
+                    setSavedProjects(JSON.parse(savedProjectsData));
+                }
+            }, []);
 
-    <script>
-        // Global state
-        let darkMode = localStorage.getItem('figma-dark-mode') === 'true';
-        let projectName = 'Bnp Projects';
-        let modes = ['SPA', 'POR', 'ENG'];
-        let variables = [
-            {
-                id: '1',
-                name: 'kicker',
-                values: {
-                    'SPA': '¡Exploradores del futuro!',
-                    'POR': 'Exploradores do Futuro!',
-                    'ENG': 'Future Explorers!'
-                },
-                charLimit: 50
-            }
-        ];
-
-        // Initialize
-        function init() {
-            console.log('🚀 Inicializando Edye...');
-            applyDarkMode();
-            renderHeaders();
-            renderVariables();
-            updateFileStatus();
-        }
-
-        function toggleDark() {
-            darkMode = !darkMode;
-            localStorage.setItem('figma-dark-mode', darkMode);
-            applyDarkMode();
-        }
-
-        function applyDarkMode() {
-            const body = document.body;
-            const toggle = document.getElementById('darkToggle');
-            
-            if (darkMode) {
-                body.classList.add('dark');
-                toggle.classList.add('active');
-            } else {
-                body.classList.remove('dark');
-                toggle.classList.remove('active');
-            }
-        }
-
-        function editTitle() {
-            const titleEl = document.getElementById('projectTitle');
-            const currentText = titleEl.textContent;
-            
-            titleEl.innerHTML = `<input type="text" value="${currentText}" style="background: transparent; border: none; outline: none; font-size: inherit; font-weight: inherit; width: 100%;" onblur="saveTitle(this)" onkeydown="if(event.key==='Enter') saveTitle(this)" autofocus>`;
-        }
-
-        function saveTitle(input) {
-            projectName = input.value || 'Bnp Projects';
-            document.getElementById('projectTitle').textContent = projectName;
-        }
-
-        function renderHeaders() {
-            const container = document.getElementById('modeHeaders');
-            container.innerHTML = modes.map(mode => 
-                `<th style="min-width: 250px; position: relative;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>${mode}</span>
-                        ${modes.length > 1 ? `<button onclick="removeMode('${mode}')" style="background: none; border: none; color: #ef4444; cursor: pointer;">🗑️</button>` : ''}
-                    </div>
-                </th>`
-            ).join('') + '<th style="width: 60px;"><button onclick="addMode()" style="background: none; border: none; font-size: 16px; cursor: pointer;">+</button></th>';
-        }
-
-        function renderVariables() {
-            const tbody = document.getElementById('variablesTable');
-            tbody.innerHTML = variables.map((variable, index) => `
-                <tr class="variable-row">
-                    <td>
-                        <input type="text" 
-                               value="${variable.name}" 
-                               class="variable-input ${!variable.name ? 'empty-field' : ''}"
-                               onchange="updateVariableName('${variable.id}', this.value)"
-                               placeholder="variable-name">
-                    </td>
-                    ${modes.map(mode => `
-                        <td>
-                            <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <textarea class="text-area ${getFieldClass(variable.values[mode], variable.charLimit)}"
-                                         onchange="updateVariableValue('${variable.id}', '${mode}', this.value)"
-                                         oninput="updateVariableValue('${variable.id}', '${mode}', this.value)"
-                                         maxlength="${variable.charLimit}"
-                                         placeholder="Texto en ${mode}...">${variable.values[mode] || ''}</textarea>
-                                <div class="char-counter ${getCountClass((variable.values[mode] || '').length, variable.charLimit)}">
-                                    ${(variable.values[mode] || '').length}/${variable.charLimit}
-                                    ${(variable.values[mode] || '').length >= variable.charLimit ? ' ⚠️' : ''}
-                                </div>
-                            </div>
-                        </td>
-                    `).join('')}
-                    <td></td>
-                    <td>
-                        <button class="delete-btn" onclick="removeVariable('${variable.id}')" title="Eliminar variable">🗑️</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function getFieldClass(value, limit) {
-            if (!value || value.trim() === '') return 'empty-field';
-            const ratio = value.length / limit;
-            if (ratio >= 1) return 'at-limit';
-            if (ratio >= 0.9) return 'near-limit';
-            return '';
-        }
-
-        function getCountClass(length, limit) {
-            const ratio = length / limit;
-            if (ratio >= 1) return 'char-error';
-            if (ratio >= 0.9) return 'char-warning';
-            return '';
-        }
-
-        function addVariable() {
-            const newVariable = {
-                id: Date.now().toString(),
-                name: `new-variable-${variables.length + 1}`,
-                values: modes.reduce((acc, mode) => ({ ...acc, [mode]: '' }), {}),
-                charLimit: 50
+            // Check if field is empty (for red border)
+            const isFieldEmpty = (value) => {
+                return !value || value.toString().trim() === '' || value === null || value === undefined;
             };
-            variables.push(newVariable);
-            renderVariables();
-        }
 
-        function removeVariable(id) {
-            variables = variables.filter(v => v.id !== id);
-            renderVariables();
-        }
+            // NEW: Get field border class based on content and character limit
+            const getFieldBorderClass = (value, charLimit = null) => {
+                if (isFieldEmpty(value)) {
+                    return 'empty-field';
+                }
+                
+                if (charLimit) {
+                    const length = (value || '').length;
+                    const ratio = length / charLimit;
+                    
+                    if (ratio >= 1) {
+                        return 'at-limit'; // Red border when at or over limit
+                    } else if (ratio >= 0.9) {
+                        return 'near-limit'; // Orange border when near limit (90%+)
+                    }
+                }
+                
+                return 'border-gray-200';
+            };
 
-        function updateVariableName(id, name) {
-            const variable = variables.find(v => v.id === id);
-            if (variable) {
-                variable.name = name;
-            }
-        }
+            // Add new mode
+            const addMode = () => {
+                const newMode = prompt('Nombre del nuevo modo (ej: FRA, ITA):');
+                if (newMode && !modes.includes(newMode)) {
+                    setModes([...modes, newMode]);
+                    setVariables(variables.map(variable => ({
+                        ...variable,
+                        values: { ...variable.values, [newMode]: '' }
+                    })));
+                }
+            };
 
-        function updateVariableValue(id, mode, value) {
-            const variable = variables.find(v => v.id === id);
-            if (variable) {
+            // Remove mode
+            const removeMode = (modeToRemove) => {
+                if (modes.length <= 1) return;
+                setModes(modes.filter(mode => mode !== modeToRemove));
+                setVariables(variables.map(variable => {
+                    const newValues = { ...variable.values };
+                    delete newValues[modeToRemove];
+                    return { ...variable, values: newValues };
+                }));
+            };
+
+            // Add new variable
+            const addVariable = () => {
+                const newVariable = {
+                    id: Date.now().toString(),
+                    name: `new-variable-${variables.length + 1}`,
+                    values: modes.reduce((acc, mode) => ({ ...acc, [mode]: '' }), {}),
+                    charLimit: 50
+                };
+                setVariables([...variables, newVariable]);
+            };
+
+            // Remove variable
+            const removeVariable = (id) => {
+                setVariables(variables.filter(v => v.id !== id));
+            };
+
+            // Update variable name
+            const updateVariableName = (id, name) => {
+                setVariables(variables.map(v => v.id === id ? { ...v, name } : v));
+            };
+
+            // NEW: Update variable value with character limit control
+            const updateVariableValue = (id, mode, value) => {
+                const variable = variables.find(v => v.id === id);
+                if (!variable) return;
+
+                // Enforce character limit - truncate if exceeding
                 const limitedValue = value.length > variable.charLimit 
                     ? value.substring(0, variable.charLimit) 
                     : value;
-                variable.values[mode] = limitedValue;
-                renderVariables(); // Re-render to update counter
-            }
-        }
 
-        function addMode() {
-            const newMode = prompt('Nombre del nuevo modo (ej: FRA, ITA):');
-            if (newMode && !modes.includes(newMode)) {
-                modes.push(newMode);
-                variables.forEach(variable => {
-                    variable.values[newMode] = '';
-                });
-                renderHeaders();
-                renderVariables();
-            }
-        }
-
-        function removeMode(mode) {
-            if (modes.length <= 1) return;
-            modes = modes.filter(m => m !== mode);
-            variables.forEach(variable => {
-                delete variable.values[mode];
-            });
-            renderHeaders();
-            renderVariables();
-        }
-
-        function exportJSON() {
-            const jsonData = {
-                collections: [{
-                    name: projectName,
-                    modes: modes,
-                    variables: variables.reduce((acc, variable) => {
-                        acc[variable.name] = {
-                            type: 'string',
-                            values: variable.values
-                        };
-                        return acc;
-                    }, {})
-                }]
+                setVariables(variables.map(v => 
+                    v.id === id ? { 
+                        ...v, 
+                        values: { ...v.values, [mode]: limitedValue }
+                    } : v
+                ));
             };
 
-            const jsonString = JSON.stringify(jsonData, null, 4);
-            const blob = new Blob([jsonString], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${projectName.toLowerCase().replace(/\s+/g, '-')}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        function saveProject() {
-            const projectData = {
-                name: projectName,
-                modes,
-                variables,
-                savedAt: new Date().toLocaleDateString()
-            };
-            localStorage.setItem('figma-current-project', JSON.stringify(projectData));
-            updateFileStatus();
-            alert(`Proyecto "${projectName}" guardado localmente!`);
-        }
-
-        function openProject() {
-            const saved = localStorage.getItem('figma-current-project');
-            if (saved) {
-                const data = JSON.parse(saved);
-                projectName = data.name;
-                modes = data.modes;
-                variables = data.variables;
+            // Update character limit
+            const updateLimit = (id, limit) => {
+                const newLimit = parseInt(limit) || 50;
                 
-                document.getElementById('projectTitle').textContent = projectName;
-                renderHeaders();
-                renderVariables();
-                updateFileStatus();
-                alert(`Proyecto "${projectName}" cargado!`);
-            } else {
-                alert('No hay proyectos guardados');
-            }
-        }
+                setVariables(variables.map(v => {
+                    if (v.id === id) {
+                        // Truncate existing values if they exceed new limit
+                        const truncatedValues = {};
+                        Object.keys(v.values).forEach(mode => {
+                            const currentValue = v.values[mode] || '';
+                            truncatedValues[mode] = currentValue.length > newLimit 
+                                ? currentValue.substring(0, newLimit)
+                                : currentValue;
+                        });
+                        
+                        return { 
+                            ...v, 
+                            charLimit: newLimit,
+                            values: truncatedValues
+                        };
+                    }
+                    return v;
+                }));
+                setEditingLimit(null);
+            };
 
-        function updateFileStatus() {
-            const saved = localStorage.getItem('figma-current-project');
-            const status = saved ? `Editando: ${JSON.parse(saved).name}` : 'Sin proyecto cargado';
-            document.getElementById('fileStatus').textContent = status;
-        }
+            // Get character count color
+            const getCountColor = (length, limit) => {
+                const ratio = length / limit;
+                if (ratio >= 1) return 'text-red-600 font-bold';
+                if (ratio >= 0.9) return 'text-orange-600 font-semibold';
+                if (ratio > 0.8) return 'text-yellow-600';
+                return 'text-gray-500';
+            };
 
-        // Initialize app
-        document.addEventListener('DOMContentLoaded', init);
+            // NEW: Handle textarea input with real-time limit enforcement
+            const handleTextareaChange = (e, variableId, mode) => {
+                const value = e.target.value;
+                const variable = variables.find(v => v.id === variableId);
+                
+                if (!variable) return;
+
+                // Allow typing but truncate if exceeding limit
+                if (value.length <= variable.charLimit) {
+                    updateVariableValue(variableId, mode, value);
+                } else {
+                    // Truncate to limit and update
+                    const truncatedValue = value.substring(0, variable.charLimit);
+                    updateVariableValue(variableId, mode, truncatedValue);
+                    
+                    // Optional: Show brief visual feedback
+                    e.target.style.borderColor = '#FF4444';
+                    setTimeout(() => {
+                        if (e.target) {
+                            e.target.style.borderColor = '';
+                        }
+                    }, 300);
+                }
+            };
+
+            // Drag and drop handlers
+            const handleDragStart = (e, index) => {
+                setDraggedItem(index);
+                e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            };
+
+            const handleDrop = (e, dropIndex) => {
+                e.preventDefault();
+                if (draggedItem === null) return;
+
+                const newVariables = [...variables];
+                const draggedVariable = newVariables[draggedItem];
+                newVariables.splice(draggedItem, 1);
+                newVariables.splice(dropIndex, 0, draggedVariable);
+                
+                setVariables(newVariables);
+                setDraggedItem(null);
+            };
+
+            // Export JSON
+            const exportJSON = () => {
+                try {
+                    const jsonData = {
+                        collections: [{
+                            name: collectionName,
+                            modes: modes,
+                            variables: variables.reduce((acc, variable) => {
+                                acc[variable.name] = {
+                                    type: 'string',
+                                    values: variable.values
+                                };
+                                return acc;
+                            }, {})
+                        }]
+                    };
+
+                    const jsonString = JSON.stringify(jsonData, null, 4);
+                    const blob = new Blob([jsonString], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${collectionName.toLowerCase().replace(/\s+/g, '-')}.json`;
+                    a.style.display = 'none';
+                    
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                } catch (error) {
+                    const jsonData = {
+                        collections: [{
+                            name: collectionName,
+                            modes: modes,
+                            variables: variables.reduce((acc, variable) => {
+                                acc[variable.name] = {
+                                    type: 'string',
+                                    values: variable.values
+                                };
+                                return acc;
+                            }, {})
+                        }]
+                    };
+                    
+                    const jsonString = JSON.stringify(jsonData, null, 4);
+                    const newWindow = window.open();
+                    newWindow.document.write(`<pre>${jsonString}</pre>`);
+                    newWindow.document.title = 'Figma Variables JSON';
+                    alert('JSON mostrado en ventana nueva - copia el contenido');
+                }
+                setShowExportMenu(false);
+            };
+
+            // Export to Excel
+            const exportExcel = () => {
+                try {
+                    const wb = XLSX.utils.book_new();
+                    
+                    const headers = ['Variable Name', 'Character Limit', ...modes];
+                    const data = [headers];
+                    
+                    variables.forEach(variable => {
+                        const row = [
+                            variable.name,
+                            variable.charLimit,
+                            ...modes.map(mode => variable.values[mode] || '')
+                        ];
+                        data.push(row);
+                    });
+                    
+                    const ws = XLSX.utils.aoa_to_sheet(data);
+                    
+                    const colWidths = [
+                        { wch: 25 },
+                        { wch: 15 },
+                        ...modes.map(() => ({ wch: 30 }))
+                    ];
+                    ws['!cols'] = colWidths;
+                    
+                    XLSX.utils.book_append_sheet(wb, ws, 'Variables');
+                    XLSX.writeFile(wb, `${collectionName.toLowerCase().replace(/\s+/g, '-')}.xlsx`);
+                    
+                } catch (error) {
+                    alert('Error al exportar Excel: ' + error.message);
+                }
+                setShowExportMenu(false);
+            };
+
+            // Import from Excel
+            const importExcel = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = new Uint8Array(event.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        const worksheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[worksheetName];
+                        
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                        
+                        if (jsonData.length < 2) {
+                            alert('El archivo Excel debe tener al menos una fila de encabezados y una fila de datos');
+                            return;
+                        }
+                        
+                        const headers = jsonData[0];
+                        const variableName = headers[0];
+                        const charLimitCol = headers[1];
+                        const languageCols = headers.slice(2);
+                        
+                        if (!variableName || !charLimitCol || languageCols.length === 0) {
+                            alert('Formato incorrecto. Debe tener: Variable Name, Character Limit, y al menos un idioma');
+                            return;
+                        }
+                        
+                        setModes(languageCols);
+                        
+                        const newVariables = jsonData.slice(1).map((row, index) => {
+                            if (!row[0]) return null;
+                            
+                            const charLimit = parseInt(row[1]) || 50;
+                            const values = {};
+                            
+                            languageCols.forEach((lang, langIndex) => {
+                                const value = row[2 + langIndex] || '';
+                                // Truncate imported values if they exceed the character limit
+                                values[lang] = value.length > charLimit ? value.substring(0, charLimit) : value;
+                            });
+                            
+                            return {
+                                id: index.toString(),
+                                name: row[0] || `variable-${index + 1}`,
+                                charLimit,
+                                values
+                            };
+                        }).filter(Boolean);
+                        
+                        setVariables(newVariables);
+                        setCurrentProject(null);
+                        alert('Excel importado exitosamente!');
+                        
+                    } catch (error) {
+                        alert('Error al importar Excel: ' + error.message);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+                e.target.value = '';
+                setShowImportMenu(false);
+            };
+
+            // Save changes to current project
+            const saveCurrentProject = () => {
+                if (!currentProject) return;
+
+                const updatedProject = {
+                    ...currentProject,
+                    collectionName,
+                    modes,
+                    variables: variables.map(v => ({
+                        name: v.name,
+                        charLimit: v.charLimit,
+                        values: { ...v.values }
+                    })),
+                    updatedAt: new Date().toLocaleDateString()
+                };
+
+                if (currentProject.type === 'project') {
+                    const updatedProjects = savedProjects.map(p => p.id === currentProject.id ? updatedProject : p);
+                    setSavedProjects(updatedProjects);
+                    localStorage.setItem('figma-projects', JSON.stringify(updatedProjects));
+                } else {
+                    const updatedTemplates = savedTemplates.map(t => t.id === currentProject.id ? updatedProject : t);
+                    setSavedTemplates(updatedTemplates);
+                    localStorage.setItem('figma-templates', JSON.stringify(updatedTemplates));
+                }
+
+                setCurrentProject(updatedProject);
+                alert(`${currentProject.type === 'template' ? 'Template' : 'Proyecto'} "${currentProject.name}" actualizado!`);
+            };
+
+            // Save as template (structure only)
+            const saveTemplate = () => {
+                if (!templateName.trim()) {
+                    alert('Por favor ingresa un nombre para el template');
+                    return;
+                }
+
+                const existingTemplate = savedTemplates.find(t => t.name === templateName);
+                
+                if (existingTemplate) {
+                    const shouldOverwrite = confirm(`Ya existe un template llamado "${templateName}". ¿Quieres sobreescribirlo?`);
+                    if (!shouldOverwrite) {
+                        return;
+                    }
+                }
+
+                const template = {
+                    id: existingTemplate ? existingTemplate.id : Date.now().toString(),
+                    name: templateName,
+                    type: 'template',
+                    collectionName,
+                    modes,
+                    variables: variables.map(v => ({
+                        name: v.name,
+                        charLimit: v.charLimit,
+                        values: Object.keys(v.values).reduce((acc, mode) => ({ ...acc, [mode]: '' }), {})
+                    })),
+                    createdAt: existingTemplate ? existingTemplate.createdAt : new Date().toLocaleDateString(),
+                    updatedAt: new Date().toLocaleDateString()
+                };
+
+                let updatedTemplates;
+                if (existingTemplate) {
+                    updatedTemplates = savedTemplates.map(t => t.id === existingTemplate.id ? template : t);
+                } else {
+                    updatedTemplates = [...savedTemplates, template];
+                }
+
+                setSavedTemplates(updatedTemplates);
+                localStorage.setItem('figma-templates', JSON.stringify(updatedTemplates));
+                
+                setTemplateName('');
+                setShowTemplateModal(false);
+                
+                alert(`Template "${template.name}" ${existingTemplate ? 'actualizado' : 'guardado'} exitosamente!`);
+            };
+
+            // Save as project (with all values)
+            const saveProject = () => {
+                if (!projectName.trim()) {
+                    alert('Por favor ingresa un nombre para el proyecto');
+                    return;
+                }
+
+                const existingProject = savedProjects.find(p => p.name === projectName);
+                
+                if (existingProject) {
+                    const shouldOverwrite = confirm(`Ya existe un proyecto llamado "${projectName}". ¿Quieres sobreescribirlo?`);
+                    if (!shouldOverwrite) {
+                        return;
+                    }
+                }
+
+                const project = {
+                    id: existingProject ? existingProject.id : Date.now().toString(),
+                    name: projectName,
+                    type: 'project',
+                    collectionName,
+                    modes,
+                    variables: variables.map(v => ({
+                        name: v.name,
+                        charLimit: v.charLimit,
+                        values: { ...v.values }
+                    })),
+                    createdAt: existingProject ? existingProject.createdAt : new Date().toLocaleDateString(),
+                    updatedAt: new Date().toLocaleDateString()
+                };
+
+                let updatedProjects;
+                if (existingProject) {
+                    updatedProjects = savedProjects.map(p => p.id === existingProject.id ? project : p);
+                } else {
+                    updatedProjects = [...savedProjects, project];
+                }
+
+                setSavedProjects(updatedProjects);
+                localStorage.setItem('figma-projects', JSON.stringify(updatedProjects));
+                
+                setCurrentProject(project);
+                setProjectName('');
+                setShowProjectModal(false);
+                
+                alert(`Proyecto "${project.name}" ${existingProject ? 'actualizado' : 'guardado'} exitosamente!`);
+            };
+
+            // Load item (template or project)
+            const loadItem = (item) => {
+                setCollectionName(item.collectionName);
+                setModes(item.modes);
+                
+                const newVariables = item.variables.map((v, index) => ({
+                    ...v,
+                    id: index.toString(),
+                    values: item.modes.reduce((acc, mode) => ({
+                        ...acc,
+                        [mode]: v.values[mode] || ''
+                    }), {})
+                }));
+                
+                setVariables(newVariables);
+                setCurrentProject(item);
+                
+                alert(`${item.type === 'template' ? 'Template' : 'Proyecto'} "${item.name}" cargado!`);
+            };
+
+            // Delete item
+            const deleteItem = (itemId, type) => {
+                if (confirm(`¿Estás seguro de eliminar este ${type === 'template' ? 'template' : 'proyecto'}?`)) {
+                    if (type === 'template') {
+                        const updatedTemplates = savedTemplates.filter(t => t.id !== itemId);
+                        setSavedTemplates(updatedTemplates);
+                        localStorage.setItem('figma-templates', JSON.stringify(updatedTemplates));
+                    } else {
+                        const updatedProjects = savedProjects.filter(p => p.id !== itemId);
+                        setSavedProjects(updatedProjects);
+                        localStorage.setItem('figma-projects', JSON.stringify(updatedProjects));
+                    }
+                    
+                    if (currentProject && currentProject.id === itemId) {
+                        setCurrentProject(null);
+                    }
+                }
+            };
+
+            // Import JSON
+            const importJSON = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        const collection = data.collections[0];
+                        
+                        setCollectionName(collection.name);
+                        setModes(collection.modes);
+                        
+                        const newVariables = Object.entries(collection.variables).map(([name, variable], index) => ({
+                            id: index.toString(),
+                            name,
+                            values: collection.modes.reduce((acc, mode) => ({
+                                ...acc,
+                                [mode]: variable.values[mode] || ''
+                            }), {}),
+                            charLimit: 50
+                        }));
+                        
+                        setVariables(newVariables);
+                        setCurrentProject(null);
+                        alert('JSON importado exitosamente!');
+                    } catch (error) {
+                        alert('Error al importar JSON: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+                setShowImportMenu(false);
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50 p-6">
+                    <div className="max-w-7xl mx-auto">
+                        {/* Header */}
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="text"
+                                        value={collectionName}
+                                        onChange={(e) => setCollectionName(e.target.value)}
+                                        className="text-2xl font-semibold text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1"
+                                    />
+                                    {currentProject && (
+                                        <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full text-sm text-blue-700">
+                                            <span>{currentProject.type === 'template' ? '📋' : '💾'}</span>
+                                            <span>Editando: <strong>{currentProject.name}</strong></span>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {/* TOOLBAR */}
+                                <div className="flex gap-2">
+                                    {/* Abrir (guardados) */}
+                                    <button
+                                        onClick={() => setShowOpenModal(true)}
+                                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                    >
+                                        <FolderOpen size={16} />
+                                        Abrir
+                                    </button>
+
+                                    {/* Guardar (solo si hay proyecto activo) */}
+                                    {currentProject && (
+                                        <button
+                                            onClick={saveCurrentProject}
+                                            className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                        >
+                                            <Save size={16} />
+                                            Guardar
+                                        </button>
+                                    )}
+
+                                    {/* Save Template */}
+                                    <button
+                                        onClick={() => setShowTemplateModal(true)}
+                                        className="flex items-center gap-2 px-3 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                                    >
+                                        📋 Template
+                                    </button>
+
+                                    {/* Open Template */}
+                                    <button
+                                        onClick={() => setShowOpenTemplateModal(true)}
+                                        className="flex items-center gap-2 px-3 py-2 text-sm text-purple-600 border border-purple-300 rounded-md hover:bg-purple-50 transition-colors"
+                                    >
+                                        📋 Abrir Template
+                                    </button>
+
+                                    {/* Import Dropdown */}
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setShowImportMenu(!showImportMenu)}
+                                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                        >
+                                            <Upload size={16} />
+                                            Import
+                                            <ChevronDown size={14} />
+                                        </button>
+                                        {showImportMenu && (
+                                            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                                                <button
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    📄 Import JSON
+                                                </button>
+                                                <button
+                                                    onClick={() => excelInputRef.current?.click()}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    📊 Import Excel/Numbers
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Export Dropdown */}
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setShowExportMenu(!showExportMenu)}
+                                            className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                                        >
+                                            <Download size={16} />
+                                            Export
+                                            <ChevronDown size={14} />
+                                        </button>
+                                        {showExportMenu && (
+                                            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                                                <button
+                                                    onClick={exportJSON}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    📄 Export JSON
+                                                </button>
+                                                <button
+                                                    onClick={exportExcel}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    📊 Export Excel/Numbers
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Hidden file inputs */}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".json"
+                                onChange={importJSON}
+                                className="hidden"
+                            />
+                            <input
+                                ref={excelInputRef}
+                                type="file"
+                                accept=".xlsx,.xls"
+                                onChange={importExcel}
+                                className="hidden"
+                            />
+                        </div>
+
+                        {/* Table */}
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-gray-50 border-b border-gray-200">
+                                        <tr>
+                                            <th className="w-8 px-4 py-3"></th>
+                                            <th className="text-left px-4 py-3 text-sm font-medium text-gray-900 min-w-48">
+                                                Variable Name
+                                            </th>
+                                            {modes.map(mode => (
+                                                <th key={mode} className="text-left px-4 py-3 text-sm font-medium text-gray-900 min-w-64 relative group">
+                                                    <div className="flex items-center justify-between">
+                                                        <span>{mode}</span>
+                                                        {modes.length > 1 && (
+                                                            <button
+                                                                onClick={() => removeMode(mode)}
+                                                                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </th>
+                                            ))}
+                                            <th className="w-16 px-4 py-3">
+                                                <button
+                                                    onClick={addMode}
+                                                    className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                                                >
+                                                    <Plus size={16} />
+                                                </button>
+                                            </th>
+                                            <th className="w-16 px-4 py-3"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {variables.map((variable, index) => (
+                                            <tr
+                                                key={variable.id}
+                                                className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, index)}
+                                                onDragOver={handleDragOver}
+                                                onDrop={(e) => handleDrop(e, index)}
+                                            >
+                                                <td className="px-4 py-3">
+                                                    <div className="cursor-move text-gray-400 hover:text-gray-600">
+                                                        <GripVertical size={16} />
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <input
+                                                        type="text"
+                                                        value={variable.name || ''}
+                                                        onChange={(e) => updateVariableName(variable.id, e.target.value)}
+                                                        className={`w-full px-3 py-2 text-sm font-bold border rounded focus:outline-none focus:ring-2 focus:ring-gray-300 ${getFieldBorderClass(variable.name)}`}
+                                                        placeholder="variable-name"
+                                                    />
+                                                </td>
+                                                {modes.map((mode, modeIndex) => (
+                                                    <td key={mode} className="px-4 py-3">
+                                                        <div className="space-y-2">
+                                                            <textarea
+                                                                value={variable.values[mode] || ''}
+                                                                onChange={(e) => handleTextareaChange(e, variable.id, mode)}
+                                                                maxLength={variable.charLimit}
+                                                                className={`w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none ${getFieldBorderClass(variable.values[mode], variable.charLimit)}`}
+                                                                rows="2"
+                                                                placeholder={`Texto en ${mode} (máx ${variable.charLimit})`}
+                                                                title={`Máximo ${variable.charLimit} caracteres`}
+                                                            />
+                                                            <div className="flex items-center justify-between text-xs">
+                                                                <span className={getCountColor(
+                                                                    (variable.values[mode] || '').length,
+                                                                    variable.charLimit
+                                                                )}>
+                                                                    {(variable.values[mode] || '').length}/{variable.charLimit}
+                                                                    {(variable.values[mode] || '').length >= variable.charLimit && ' ⚠️'}
+                                                                </span>
+                                                                {modeIndex === 0 && (
+                                                                    editingLimit === variable.id ? (
+                                                                        <input
+                                                                            type="number"
+                                                                            defaultValue={variable.charLimit}
+                                                                            onBlur={(e) => updateLimit(variable.id, e.target.value)}
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter') {
+                                                                                    updateLimit(variable.id, e.target.value);
+                                                                                }
+                                                                            }}
+                                                                            className="w-16 px-1 py-0 text-xs border border-gray-300 rounded"
+                                                                            autoFocus
+                                                                            min="1"
+                                                                            max="500"
+                                                                        />
+                                                                    ) : (
+                                                                        <button
+                                                                            onClick={() => setEditingLimit(variable.id)}
+                                                                            className="text-gray-400 hover:text-gray-600"
+                                                                            title="Editar límite de caracteres"
+                                                                        >
+                                                                            <Settings size={12} />
+                                                                        </button>
+                                                                    )
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                ))}
+                                                <td className="px-4 py-3"></td>
+                                                <td className="px-4 py-3">
+                                                    <button
+                                                        onClick={() => removeVariable(variable.id)}
+                                                        className="text-gray-400 hover:text-red-500 transition-colors"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div className="border-t border-gray-200 p-4">
+                                <button
+                                    onClick={addVariable}
+                                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                >
+                                    <Plus size={16} />
+                                    Agregar Variable
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 text-center text-sm text-gray-500">
+                            Editor de Variables de Texto para Figma v5.1 - Con control real de límites de caracteres
+                        </div>
+
+                        {/* Save Template Modal */}
+                        {showTemplateModal && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                                <div className="bg-white rounded-lg p-6 w-96 mx-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold text-gray-900">📋 Guardar como Template</h3>
+                                        <button
+                                            onClick={() => {
+                                                setShowTemplateModal(false);
+                                                setTemplateName('');
+                                            }}
+                                            className="text-gray-400 hover:text-gray-600"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Nombre del Template
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={templateName}
+                                            onChange={(e) => setTemplateName(e.target.value)}
+                                            placeholder="ej: Landing Page Structure"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            autoFocus
+                                        />
+                                    </div>
+                                    
+                                    <div className="text-sm text-gray-600 mb-4 bg-purple-50 p-3 rounded">
+                                        <p className="font-medium mb-1">Template = Solo estructura</p>
+                                        <ul className="list-disc list-inside ml-2 space-y-1">
+                                            <li>Variables y configuración de límites</li>
+                                            <li>Idiomas/modos configurados</li>
+                                            <li><strong>Textos se vacían</strong> (reutilizable)</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div className="flex gap-3 justify-end">
+                                        <button
+                                            onClick={() => {
+                                                setShowTemplateModal(false);
+                                                setTemplateName('');
+                                            }}
+                                            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={saveTemplate}
+                                            className="px-4 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                                        >
+                                            Guardar Template
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Save Project Modal */}
+                        {showProjectModal && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                                <div className="bg-white rounded-lg p-6 w-96 mx-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold text-gray-900">💾 Guardar Proyecto</h3>
+                                        <button
+                                            onClick={() => {
+                                                setShowProjectModal(false);
+                                                setProjectName('');
+                                            }}
+                                            className="text-gray-400 hover:text-gray-600"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Nombre del Proyecto
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={projectName}
+                                            onChange={(e) => setProjectName(e.target.value)}
+                                            placeholder="ej: Campaign Q1 2024"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                                            autoFocus
+                                        />
+                                    </div>
+                                    
+                                    <div className="text-sm text-gray-600 mb-4 bg-green-50 p-3 rounded">
+                                        <p className="font-medium mb-1">Proyecto = Estado completo</p>
+                                        <ul className="list-disc list-inside ml-2 space-y-1">
+                                            <li>Toda la estructura + configuración</li>
+                                            <li><strong>Todos los textos incluidos</strong></li>
+                                            <li>Para continuar trabajando después</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div className="flex gap-3 justify-end">
+                                        <button
+                                            onClick={() => {
+                                                setShowProjectModal(false);
+                                                setProjectName('');
+                                            }}
+                                            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={saveProject}
+                                            className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                        >
+                                            Guardar Proyecto
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Open Projects Modal */}
+                        {showOpenModal && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                                <div className="bg-white rounded-lg p-6 w-96 mx-4 max-h-96 overflow-y-auto">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold text-gray-900">💾 Abrir Proyecto</h3>
+                                        <button
+                                            onClick={() => setShowOpenModal(false)}
+                                            className="text-gray-400 hover:text-gray-600"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                    
+                                    {savedProjects.length === 0 ? (
+                                        <p className="text-gray-500 text-center py-4">No hay proyectos guardados</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {savedProjects.map(project => (
+                                                <div key={project.id} className="flex items-center justify-between p-3 bg-green-50 rounded border hover:bg-green-100 transition-colors">
+                                                    <div className="flex-1">
+                                                        <div className="font-medium text-gray-900">💾 {project.name}</div>
+                                                        <div className="text-sm text-gray-500">
+                                                            {project.updatedAt ? `Actualizado: ${project.updatedAt}` : project.createdAt}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                loadItem(project);
+                                                                setShowOpenModal(false);
+                                                            }}
+                                                            className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                                                        >
+                                                            Abrir
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteItem(project.id, 'project')}
+                                                            className="px-2 py-1 text-sm text-red-600 hover:text-red-800"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    
+                                    <div className="mt-4 pt-3 border-t">
+                                        <button
+                                            onClick={() => {
+                                                setShowOpenModal(false);
+                                                setShowProjectModal(true);
+                                            }}
+                                            className="w-full px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                        >
+                                            + Guardar Proyecto Actual
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Open Templates Modal */}
+                        {showOpenTemplateModal && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                                <div className="bg-white rounded-lg p-6 w-96 mx-4 max-h-96 overflow-y-auto">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold text-gray-900">📋 Abrir Template</h3>
+                                        <button
+                                            onClick={() => setShowOpenTemplateModal(false)}
+                                            className="text-gray-400 hover:text-gray-600"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                    
+                                    {savedTemplates.length === 0 ? (
+                                        <p className="text-gray-500 text-center py-4">No hay templates guardados</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {savedTemplates.map(template => (
+                                                <div key={template.id} className="flex items-center justify-between p-3 bg-purple-50 rounded border hover:bg-purple-100 transition-colors">
+                                                    <div className="flex-1">
+                                                        <div className="font-medium text-gray-900">📋 {template.name}</div>
+                                                        <div className="text-sm text-gray-500">
+                                                            {template.updatedAt ? `Actualizado: ${template.updatedAt}` : template.createdAt}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                loadItem(template);
+                                                                setShowOpenTemplateModal(false);
+                                                            }}
+                                                            className="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700"
+                                                        >
+                                                            Usar
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteItem(template.id, 'template')}
+                                                            className="px-2 py-1 text-sm text-red-600 hover:text-red-800"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<FigmaVariablesEditor />, document.getElementById('root'));
     </script>
 </body>
 </html>
