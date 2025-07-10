@@ -239,7 +239,7 @@
             const autoSaveTimeoutRef = useRef(null);
             const unsubscribeRef = useRef(null);
             
-            // NEW: Flag to prevent overwriting local character limit changes
+            // Character limit protection for Firebase sync
             const [localCharLimitChanges, setLocalCharLimitChanges] = useState(new Map());
             const localChangesTimeoutRef = useRef(null);
 
@@ -422,7 +422,7 @@
                 }
             };
 
-            // FIXED: Subscribe to real-time updates v8 with character limit protection
+            // Subscribe to real-time updates v8 (simplified)
             const subscribeToProject = (projectId) => {
                 if (!db || !projectId) return;
 
@@ -431,12 +431,15 @@
                         if (doc.exists) {
                             const data = doc.data();
                             
-                            // Only update if data is newer than our local changes
-                            if (data.lastModified && (!currentProject?.lastModified || data.lastModified > currentProject.lastModified)) {
+                            // Only update if data is significantly newer (5+ seconds)
+                            const now = Date.now();
+                            const dataAge = now - (data.lastModified || now);
+                            
+                            if (dataAge > 5000 && data.lastModified && (!currentProject?.lastModified || data.lastModified > currentProject.lastModified)) {
                                 setCollectionName(data.collectionName || 'Languages');
                                 setModes(data.modes || ['SPA', 'POR', 'ENG']);
                                 
-                                // FIXED: Preserve local character limit changes during Firebase sync
+                                // Preserve local character limit changes during sync
                                 const newVariables = data.variables ? data.variables.map((v, index) => {
                                     const variableId = v.id || index.toString();
                                     const hasLocalChange = localCharLimitChanges.has(variableId);
@@ -445,7 +448,6 @@
                                         id: variableId,
                                         name: v.name || `variable-${index + 1}`,
                                         values: { ...v.values },
-                                        // Use local charLimit if there's a recent local change, otherwise use Firebase data
                                         charLimit: hasLocalChange ? localCharLimitChanges.get(variableId) : (v.charLimit || 50)
                                     };
                                 }) : [];
@@ -496,7 +498,7 @@
                     };
                     
                     await saveToFirebase(projectData, currentProject.id);
-                }, 3000); // Reduced to 3 seconds for better responsiveness
+                }, 8000); // Increased to 8 seconds to avoid interference while typing
             }, [collectionName, modes, variables, currentProject]);
 
             // Trigger auto-save when data changes
@@ -633,37 +635,39 @@
                 ));
             };
 
-            // FIXED: Update character limit with local change tracking
+            // Update character limit (simplified to avoid interference)
             const updateLimit = (id, limit) => {
                 const newLimit = parseInt(limit) || 50;
                 
                 // Update the variable with new limit
-                setVariables(variables.map(v => 
+                setVariables(prevVariables => prevVariables.map(v => 
                     v.id === id ? { 
                         ...v, 
                         charLimit: newLimit
                     } : v
                 ));
                 
-                // Track this as a local change to prevent Firebase overwriting
-                setLocalCharLimitChanges(prev => {
-                    const newMap = new Map(prev);
-                    newMap.set(id, newLimit);
-                    return newMap;
-                });
-                
-                // Clear the local change tracking after some time (when Firebase sync is complete)
-                if (localChangesTimeoutRef.current) {
-                    clearTimeout(localChangesTimeoutRef.current);
-                }
-                
-                localChangesTimeoutRef.current = setTimeout(() => {
+                // Track this as a local change to prevent Firebase overwriting (shorter protection)
+                if (currentProject?.isFirebase) {
                     setLocalCharLimitChanges(prev => {
                         const newMap = new Map(prev);
-                        newMap.delete(id);
+                        newMap.set(id, newLimit);
                         return newMap;
                     });
-                }, 15000); // Clear local change protection after 15 seconds
+                    
+                    // Clear protection after 5 seconds (reduced from 15)
+                    if (localChangesTimeoutRef.current) {
+                        clearTimeout(localChangesTimeoutRef.current);
+                    }
+                    
+                    localChangesTimeoutRef.current = setTimeout(() => {
+                        setLocalCharLimitChanges(prev => {
+                            const newMap = new Map(prev);
+                            newMap.delete(id);
+                            return newMap;
+                        });
+                    }, 5000);
+                }
                 
                 setEditingLimit(null);
             };
@@ -1656,7 +1660,7 @@
                         </div>
 
                         <div className="mt-6 text-center text-sm text-gray-500">
-                            Edye Variable Editor v6.3.2 - Fixed Character Limits
+                            Edye Variable Editor v6.3.3 - Input Fixed
                         </div>
 
                         {/* Open Firebase Projects Modal */}
@@ -1869,7 +1873,7 @@
                                             <li><strong>Sincronización automática</strong> entre todos los usuarios</li>
                                             <li><strong>Links compartibles</strong> simples y cortos</li>
                                             <li><strong>Sin límite de colaboradores</strong></li>
-                                            <li><strong>Guardado automático</strong> cada 3 segundos</li>
+                                            <li><strong>Guardado automático</strong> cada 8 segundos</li>
                                         </ul>
                                     </div>
                                     
