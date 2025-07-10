@@ -465,7 +465,7 @@
                     };
                     
                     await saveToFirebase(projectData, currentProject.id);
-                }, 2000); // Auto-save after 2 seconds of inactivity
+                }, 10000); // Auto-save after 10 seconds of inactivity (less intrusive)
             }, [collectionName, modes, variables, currentProject]);
 
             // Trigger auto-save when data changes
@@ -764,15 +764,42 @@
                 setShowImportMenu(false);
             };
 
-            // Save to Firebase as new project
-            const saveToFirebaseProject = async () => {
-                if (!projectName.trim()) {
+            // Save to Firebase as new project OR update current
+            const saveToFirebaseProject = async (forceNew = false) => {
+                // If we have a current Firebase project and name hasn't changed and not forcing new
+                if (currentProject?.isFirebase && !forceNew && collectionName === currentProject.name) {
+                    const projectData = {
+                        name: currentProject.name,
+                        collectionName,
+                        modes,
+                        variables: variables.map(v => ({
+                            id: v.id,
+                            name: v.name,
+                            charLimit: v.charLimit,
+                            values: { ...v.values }
+                        })),
+                        type: 'firebase',
+                        createdAt: currentProject.createdAt
+                    };
+
+                    const projectId = await saveToFirebase(projectData, currentProject.id);
+                    
+                    if (projectId) {
+                        alert(`Project "${currentProject.name}" updated in Firebase!`);
+                    }
+                    return;
+                }
+
+                // For new projects or "Save As", we need a name
+                const finalProjectName = projectName.trim() || collectionName || 'New Project';
+                
+                if (!finalProjectName) {
                     alert('Please enter a project name');
                     return;
                 }
 
                 const projectData = {
-                    name: projectName,
+                    name: finalProjectName,
                     collectionName,
                     modes,
                     variables: variables.map(v => ({
@@ -801,6 +828,19 @@
                     setShowProjectModal(false);
                     
                     alert(`Project "${projectData.name}" saved to Firebase!`);
+                }
+            };
+
+            // Handle Save Cloud button click
+            const handleSaveCloud = () => {
+                // If we have a current Firebase project and collection name hasn't changed
+                if (currentProject?.isFirebase && collectionName === currentProject.name) {
+                    // Direct save without modal
+                    saveToFirebaseProject();
+                } else {
+                    // Show modal for new name or new project
+                    setProjectName(collectionName || currentProject?.name || '');
+                    setShowProjectModal(true);
                 }
             };
 
@@ -1221,12 +1261,16 @@
 
                                 {/* Save Cloud */}
                                 <button
-                                    onClick={() => setShowProjectModal(true)}
+                                    onClick={handleSaveCloud}
                                     className="flex items-center gap-2 px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                                    title="Save to Firebase (real-time sync)"
+                                    title={currentProject?.isFirebase && collectionName === currentProject.name 
+                                        ? `Update "${currentProject.name}" in Firebase` 
+                                        : "Save to Firebase (new project or save as)"}
                                 >
                                     <Cloud size={16} />
-                                    Save Cloud
+                                    {currentProject?.isFirebase && collectionName === currentProject.name 
+                                        ? 'Update Cloud' 
+                                        : 'Save Cloud'}
                                 </button>
 
                                 {/* Load Template */}
@@ -1462,7 +1506,7 @@
                         </div>
 
                         <div className="mt-6 text-center text-sm text-gray-500">
-                            Edye Variable Editor v6.1 - Firebase with Navigation
+                            Edye Variable Editor v6.2 - Improved Cloud Save
                         </div>
 
                         {/* Open Firebase Projects Modal */}
