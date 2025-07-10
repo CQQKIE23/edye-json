@@ -584,20 +584,55 @@
 
             // Export JSON
             const exportJSON = () => {
+                setShowExportMenu(false);
+                
+                // Show export format selection
+                const format = confirm('Choose export format:\n\nOK = Figma Compatible Format\nCancel = Standard Format\n\n(Figma format can be imported back to Figma)');
+                
                 try {
-                    const jsonData = {
-                        collections: [{
-                            name: collectionName,
-                            modes: modes,
-                            variables: variables.reduce((acc, variable) => {
-                                acc[variable.name] = {
-                                    type: 'string',
-                                    values: variable.values
+                    let jsonData;
+                    let filename;
+                    
+                    if (format) {
+                        // Figma compatible format
+                        const modesData = {};
+                        
+                        modes.forEach(mode => {
+                            modesData[mode] = {};
+                            variables.forEach(variable => {
+                                modesData[mode][variable.name] = {
+                                    "$scopes": ["ALL_SCOPES"],
+                                    "$type": "string",
+                                    "$value": variable.values[mode] || ""
                                 };
-                                return acc;
-                            }, {})
-                        }]
-                    };
+                            });
+                        });
+                        
+                        jsonData = [{
+                            [collectionName]: {
+                                modes: modesData
+                            }
+                        }];
+                        
+                        filename = `${collectionName.toLowerCase().replace(/\s+/g, '-')}-figma.json`;
+                    } else {
+                        // Standard format (our internal format)
+                        jsonData = {
+                            collections: [{
+                                name: collectionName,
+                                modes: modes,
+                                variables: variables.reduce((acc, variable) => {
+                                    acc[variable.name] = {
+                                        type: 'string',
+                                        values: variable.values
+                                    };
+                                    return acc;
+                                }, {})
+                            }]
+                        };
+                        
+                        filename = `${collectionName.toLowerCase().replace(/\s+/g, '-')}-standard.json`;
+                    }
 
                     const jsonString = JSON.stringify(jsonData, null, 4);
                     const blob = new Blob([jsonString], { type: 'application/json' });
@@ -605,7 +640,7 @@
                     
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `${collectionName.toLowerCase().replace(/\s+/g, '-')}.json`;
+                    a.download = filename;
                     a.style.display = 'none';
                     
                     document.body.appendChild(a);
@@ -614,6 +649,7 @@
                     URL.revokeObjectURL(url);
                     
                 } catch (error) {
+                    // Fallback - show in new window
                     const jsonData = {
                         collections: [{
                             name: collectionName,
@@ -631,10 +667,9 @@
                     const jsonString = JSON.stringify(jsonData, null, 4);
                     const newWindow = window.open();
                     newWindow.document.write(`<pre>${jsonString}</pre>`);
-                    newWindow.document.title = 'Figma Variables JSON';
-                    alert('JSON mostrado en ventana nueva - copia el contenido');
+                    newWindow.document.title = 'Variables JSON';
+                    alert('JSON displayed in new window - copy the content');
                 }
-                setShowExportMenu(false);
             };
 
             // Export to Excel
