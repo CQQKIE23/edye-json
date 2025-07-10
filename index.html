@@ -191,6 +191,17 @@
             const [variables, setVariables] = useState([
                 {
                     id: '1',
+                    name: 'Language',
+                    values: {
+                        'SPA': 'Spanish',
+                        'POR': 'Portuguese',
+                        'ENG': 'English'
+                    },
+                    charLimit: 50,
+                    isFixed: true // Mark as fixed/permanent
+                },
+                {
+                    id: '2',
                     name: 'kicker',
                     values: {
                         'SPA': 'Future Explorers!',
@@ -490,10 +501,41 @@
                 const newMode = prompt('New mode name (ex: FRA, ITA):');
                 if (newMode && !modes.includes(newMode)) {
                     setModes([...modes, newMode]);
-                    setVariables(variables.map(variable => ({
-                        ...variable,
-                        values: { ...variable.values, [newMode]: '' }
-                    })));
+                    setVariables(variables.map(variable => {
+                        // Special handling for Language variable
+                        if (variable.name === 'Language') {
+                            // Add appropriate language name for common modes
+                            let languageName = '';
+                            const upperMode = newMode.toUpperCase();
+                            switch(upperMode) {
+                                case 'FRA':
+                                case 'FR':
+                                    languageName = 'French';
+                                    break;
+                                case 'ITA':
+                                case 'IT':
+                                    languageName = 'Italian';
+                                    break;
+                                case 'DEU':
+                                case 'GER':
+                                case 'DE':
+                                    languageName = 'German';
+                                    break;
+                                default:
+                                    languageName = newMode; // Use mode name as fallback
+                            }
+                            
+                            return {
+                                ...variable,
+                                values: { ...variable.values, [newMode]: languageName }
+                            };
+                        } else {
+                            return {
+                                ...variable,
+                                values: { ...variable.values, [newMode]: '' }
+                            };
+                        }
+                    }));
                 }
             };
 
@@ -517,6 +559,32 @@
                     charLimit: 50
                 };
                 setVariables([...variables, newVariable]);
+                
+                // Ensure Language variable exists and has correct values
+                setVariables(prevVariables => {
+                    const hasLanguageVar = prevVariables.some(v => v.name === 'Language');
+                    if (!hasLanguageVar) {
+                        const languageVar = {
+                            id: 'language-var',
+                            name: 'Language',
+                            values: {
+                                'SPA': 'Spanish',
+                                'POR': 'Portuguese', 
+                                'ENG': 'English',
+                                ...modes.reduce((acc, mode) => {
+                                    if (!['SPA', 'POR', 'ENG'].includes(mode)) {
+                                        acc[mode] = mode; // Use mode name for other languages
+                                    }
+                                    return acc;
+                                }, {})
+                            },
+                            charLimit: 50,
+                            isFixed: true
+                        };
+                        return [languageVar, ...prevVariables];
+                    }
+                    return prevVariables;
+                });
             };
 
             // Remove variable
@@ -593,6 +661,13 @@
                     let jsonData;
                     let filename;
                     
+                    // Get project name for filename
+                    const projectFileName = (currentProject?.name || collectionName || 'variables')
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]/gi, '-')
+                        .replace(/-+/g, '-')
+                        .replace(/^-|-$/g, '');
+                    
                     if (format) {
                         // Figma compatible format
                         const modesData = {};
@@ -614,7 +689,7 @@
                             }
                         }];
                         
-                        filename = `${collectionName.toLowerCase().replace(/\s+/g, '-')}-figma.json`;
+                        filename = `${projectFileName}-figma.json`;
                     } else {
                         // Standard format (our internal format)
                         jsonData = {
@@ -631,7 +706,7 @@
                             }]
                         };
                         
-                        filename = `${collectionName.toLowerCase().replace(/\s+/g, '-')}-standard.json`;
+                        filename = `${projectFileName}-standard.json`;
                     }
 
                     const jsonString = JSON.stringify(jsonData, null, 4);
@@ -697,7 +772,15 @@
                     ws['!cols'] = colWidths;
                     
                     XLSX.utils.book_append_sheet(wb, ws, 'Variables');
-                    XLSX.writeFile(wb, `${collectionName.toLowerCase().replace(/\s+/g, '-')}.xlsx`);
+                    
+                    // Get project name for filename
+                    const projectFileName = (currentProject?.name || collectionName || 'variables')
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]/gi, '-')
+                        .replace(/-+/g, '-')
+                        .replace(/^-|-$/g, '');
+                    
+                    XLSX.writeFile(wb, `${projectFileName}.xlsx`);
                     
                 } catch (error) {
                     alert('Error exporting Excel: ' + error.message);
@@ -1506,7 +1589,7 @@
                         </div>
 
                         <div className="mt-6 text-center text-sm text-gray-500">
-                            Edye Variable Editor v6.2 - Improved Cloud Save
+                            Edye Variable Editor v6.3 - Final Polish
                         </div>
 
                         {/* Open Firebase Projects Modal */}
