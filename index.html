@@ -59,7 +59,7 @@
   storageBucket: "edye-figma-variables-editor.firebasestorage.app",
   messagingSenderId: "84595194424",
   appId: "1:84595194424:web:e3dc8268d91171f0f004cd"
-};
+}; 
 
         // Inicializar Firebase v8
         let db = null;
@@ -238,6 +238,10 @@
             const [lastSaved, setLastSaved] = useState(null);
             const autoSaveTimeoutRef = useRef(null);
             const unsubscribeRef = useRef(null);
+            
+            // NEW: Flag to prevent overwriting local character limit changes
+            const [localCharLimitChanges, setLocalCharLimitChanges] = useState(new Map());
+            const localChangesTimeoutRef = useRef(null);
 
             // Firebase helper functions
             const updateFirebaseStatus = (status) => {
@@ -344,9 +348,12 @@
                 setCollectionName(project.collectionName || 'Languages');
                 setModes(project.modes || ['SPA', 'POR', 'ENG']);
                 
+                // FIXED: Ensure charLimit is properly preserved when loading
                 const newVariables = project.variables ? project.variables.map((v, index) => ({
-                    ...v,
-                    id: v.id || index.toString()
+                    id: v.id || index.toString(),
+                    name: v.name || `variable-${index + 1}`,
+                    values: { ...v.values },
+                    charLimit: v.charLimit || 50 // Ensure charLimit is always set
                 })) : [];
                 
                 setVariables(newVariables);
@@ -355,6 +362,9 @@
                     ...project,
                     isFirebase: true
                 });
+                
+                // Clear any local character limit changes
+                setLocalCharLimitChanges(new Map());
                 
                 subscribeToProject(project.id);
                 setShowOpenFirebaseModal(false);
@@ -390,6 +400,7 @@
                     }
                 }
             };
+
             const loadFromFirebase = async (projectId) => {
                 if (!db) {
                     console.error('Firebase not initialized');
@@ -411,7 +422,7 @@
                 }
             };
 
-            // Subscribe to real-time updates v8
+            // FIXED: Subscribe to real-time updates v8 with character limit protection
             const subscribeToProject = (projectId) => {
                 if (!db || !projectId) return;
 
@@ -425,10 +436,19 @@
                                 setCollectionName(data.collectionName || 'Languages');
                                 setModes(data.modes || ['SPA', 'POR', 'ENG']);
                                 
-                                const newVariables = data.variables ? data.variables.map((v, index) => ({
-                                    ...v,
-                                    id: v.id || index.toString()
-                                })) : [];
+                                // FIXED: Preserve local character limit changes during Firebase sync
+                                const newVariables = data.variables ? data.variables.map((v, index) => {
+                                    const variableId = v.id || index.toString();
+                                    const hasLocalChange = localCharLimitChanges.has(variableId);
+                                    
+                                    return {
+                                        id: variableId,
+                                        name: v.name || `variable-${index + 1}`,
+                                        values: { ...v.values },
+                                        // Use local charLimit if there's a recent local change, otherwise use Firebase data
+                                        charLimit: hasLocalChange ? localCharLimitChanges.get(variableId) : (v.charLimit || 50)
+                                    };
+                                }) : [];
                                 
                                 setVariables(newVariables);
                                 
@@ -453,7 +473,7 @@
                 }
             };
 
-            // Auto-save functionality
+            // FIXED: Auto-save functionality with character limit preservation
             const scheduleAutoSave = useCallback(() => {
                 if (!currentProject?.isFirebase) return;
                 
@@ -468,7 +488,7 @@
                         variables: variables.map(v => ({
                             id: v.id,
                             name: v.name,
-                            charLimit: v.charLimit,
+                            charLimit: v.charLimit, // Ensure charLimit is always saved
                             values: { ...v.values }
                         })),
                         name: currentProject.name,
@@ -476,7 +496,7 @@
                     };
                     
                     await saveToFirebase(projectData, currentProject.id);
-                }, 10000); // Auto-save after 10 seconds of inactivity (less intrusive)
+                }, 3000); // Reduced to 3 seconds for better responsiveness
             }, [collectionName, modes, variables, currentProject]);
 
             // Trigger auto-save when data changes
@@ -590,6 +610,12 @@
             // Remove variable
             const removeVariable = (id) => {
                 setVariables(variables.filter(v => v.id !== id));
+                // Also remove any local character limit changes for this variable
+                setLocalCharLimitChanges(prev => {
+                    const newMap = new Map(prev);
+                    newMap.delete(id);
+                    return newMap;
+                });
             };
 
             // Update variable name
@@ -607,14 +633,38 @@
                 ));
             };
 
-            // Update character limit
+            // FIXED: Update character limit with local change tracking
             const updateLimit = (id, limit) => {
+                const newLimit = parseInt(limit) || 50;
+                
+                // Update the variable with new limit
                 setVariables(variables.map(v => 
                     v.id === id ? { 
                         ...v, 
-                        charLimit: parseInt(limit) || 50
+                        charLimit: newLimit
                     } : v
                 ));
+                
+                // Track this as a local change to prevent Firebase overwriting
+                setLocalCharLimitChanges(prev => {
+                    const newMap = new Map(prev);
+                    newMap.set(id, newLimit);
+                    return newMap;
+                });
+                
+                // Clear the local change tracking after some time (when Firebase sync is complete)
+                if (localChangesTimeoutRef.current) {
+                    clearTimeout(localChangesTimeoutRef.current);
+                }
+                
+                localChangesTimeoutRef.current = setTimeout(() => {
+                    setLocalCharLimitChanges(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(id);
+                        return newMap;
+                    });
+                }, 15000); // Clear local change protection after 15 seconds
+                
                 setEditingLimit(null);
             };
 
@@ -699,7 +749,8 @@
                                 variables: variables.reduce((acc, variable) => {
                                     acc[variable.name] = {
                                         type: 'string',
-                                        values: variable.values
+                                        values: variable.values,
+                                        charLimit: variable.charLimit // Include charLimit in export
                                     };
                                     return acc;
                                 }, {})
@@ -732,7 +783,8 @@
                             variables: variables.reduce((acc, variable) => {
                                 acc[variable.name] = {
                                     type: 'string',
-                                    values: variable.values
+                                    values: variable.values,
+                                    charLimit: variable.charLimit
                                 };
                                 return acc;
                             }, {})
@@ -788,7 +840,7 @@
                 setShowExportMenu(false);
             };
 
-            // Import from Excel
+            // FIXED: Import from Excel with charLimit support
             const importExcel = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -829,13 +881,14 @@
                             return {
                                 id: index.toString(),
                                 name: row[0] || `variable-${index + 1}`,
-                                charLimit: parseInt(row[1]) || 50,
+                                charLimit: parseInt(row[1]) || 50, // Properly parse charLimit from Excel
                                 values
                             };
                         }).filter(Boolean);
                         
                         setVariables(newVariables);
                         setCurrentProject(null);
+                        setLocalCharLimitChanges(new Map()); // Clear local changes when importing
                         alert('Excel imported successfully!');
                         
                     } catch (error) {
@@ -905,6 +958,7 @@
                     };
                     
                     setCurrentProject(newProject);
+                    setLocalCharLimitChanges(new Map()); // Clear local changes for new project
                     subscribeToProject(projectId);
                     
                     setProjectName('');
@@ -957,6 +1011,7 @@
                         };
                         
                         setCurrentProject(newProject);
+                        setLocalCharLimitChanges(new Map());
                         subscribeToProject(projectId);
                     }
                 }
@@ -1010,9 +1065,12 @@
                             setCollectionName(projectData.collectionName || 'Languages');
                             setModes(projectData.modes || ['SPA', 'POR', 'ENG']);
                             
+                            // FIXED: Ensure charLimit is preserved when loading shared project
                             const newVariables = projectData.variables ? projectData.variables.map((v, index) => ({
-                                ...v,
-                                id: v.id || index.toString()
+                                id: v.id || index.toString(),
+                                name: v.name || `variable-${index + 1}`,
+                                values: { ...v.values },
+                                charLimit: v.charLimit || 50
                             })) : [];
                             
                             setVariables(newVariables);
@@ -1022,6 +1080,7 @@
                                 isFirebase: true
                             });
                             
+                            setLocalCharLimitChanges(new Map());
                             subscribeToProject(projectId);
                             
                             // Clear URL
@@ -1053,6 +1112,9 @@
                     }
                     if (autoSaveTimeoutRef.current) {
                         clearTimeout(autoSaveTimeoutRef.current);
+                    }
+                    if (localChangesTimeoutRef.current) {
+                        clearTimeout(localChangesTimeoutRef.current);
                     }
                 };
             }, []);
@@ -1189,7 +1251,7 @@
                 alert(`Proyecto "${project.name}" ${existingProject ? 'actualizado' : 'guardado'} exitosamente!`);
             };
 
-            // Load item (template or project)
+            // FIXED: Load item with proper charLimit support
             const loadItem = (item) => {
                 // Unsubscribe from current Firebase project if any
                 if (unsubscribeRef.current) {
@@ -1200,9 +1262,11 @@
                 setCollectionName(item.collectionName);
                 setModes(item.modes);
                 
+                // Ensure charLimit is properly loaded from saved data
                 const newVariables = item.variables.map((v, index) => ({
-                    ...v,
                     id: v.id || index.toString(),
+                    name: v.name || `variable-${index + 1}`,
+                    charLimit: v.charLimit || 50, // Ensure charLimit is preserved
                     values: item.modes.reduce((acc, mode) => ({
                         ...acc,
                         [mode]: v.values[mode] || ''
@@ -1211,6 +1275,7 @@
                 
                 setVariables(newVariables);
                 setCurrentProject(item);
+                setLocalCharLimitChanges(new Map()); // Clear local changes when loading
                 
                 alert(`${item.type === 'template' ? 'Template' : 'Proyecto'} "${item.name}" cargado!`);
             };
@@ -1230,11 +1295,12 @@
                     
                     if (currentProject && currentProject.id === itemId) {
                         setCurrentProject(null);
+                        setLocalCharLimitChanges(new Map());
                     }
                 }
             };
 
-            // Import JSON
+            // FIXED: Import JSON with charLimit support
             const importJSON = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -1251,15 +1317,16 @@
                         const newVariables = Object.entries(collection.variables).map(([name, variable], index) => ({
                             id: index.toString(),
                             name,
+                            charLimit: variable.charLimit || 50, // Import charLimit if available
                             values: collection.modes.reduce((acc, mode) => ({
                                 ...acc,
                                 [mode]: variable.values[mode] || ''
-                            }), {}),
-                            charLimit: 50
+                            }), {})
                         }));
                         
                         setVariables(newVariables);
                         setCurrentProject(null);
+                        setLocalCharLimitChanges(new Map()); // Clear local changes when importing
                         alert('JSON importado exitosamente!');
                     } catch (error) {
                         alert('Error al importar JSON: ' + error.message);
@@ -1589,7 +1656,7 @@
                         </div>
 
                         <div className="mt-6 text-center text-sm text-gray-500">
-                            Edye Variable Editor v6.3.1 - Clean Variables
+                            Edye Variable Editor v6.3.2 - Fixed Character Limits
                         </div>
 
                         {/* Open Firebase Projects Modal */}
@@ -1802,7 +1869,7 @@
                                             <li><strong>Sincronización automática</strong> entre todos los usuarios</li>
                                             <li><strong>Links compartibles</strong> simples y cortos</li>
                                             <li><strong>Sin límite de colaboradores</strong></li>
-                                            <li><strong>Guardado automático</strong> cada 2 segundos</li>
+                                            <li><strong>Guardado automático</strong> cada 3 segundos</li>
                                         </ul>
                                     </div>
                                     
