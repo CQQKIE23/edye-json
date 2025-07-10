@@ -53,14 +53,13 @@
     <script>
         // TODO: Reemplaza con tu configuración de Firebase
         const firebaseConfig = {
-  apiKey: "AIzaSyCcbWLknBVVmf0ra_afF0FGbeFFI17rals",
+   apiKey: "AIzaSyCcbWLknBVVmf0ra_afF0FGbeFFI17rals",
   authDomain: "edye-figma-variables-editor.firebaseapp.com",
   projectId: "edye-figma-variables-editor",
   storageBucket: "edye-figma-variables-editor.firebasestorage.app",
   messagingSenderId: "84595194424",
   appId: "1:84595194424:web:e3dc8268d91171f0f004cd"
 };
-
         // Inicializar Firebase v8
         let db = null;
         try {
@@ -209,6 +208,8 @@
             const [showProjectModal, setShowProjectModal] = useState(false);
             const [showOpenModal, setShowOpenModal] = useState(false);
             const [showOpenTemplateModal, setShowOpenTemplateModal] = useState(false);
+            const [showOpenFirebaseModal, setShowOpenFirebaseModal] = useState(false);
+            const [firebaseProjects, setFirebaseProjects] = useState([]);
             const [showExportMenu, setShowExportMenu] = useState(false);
             const [showImportMenu, setShowImportMenu] = useState(false);
             const [templateName, setTemplateName] = useState('');
@@ -285,7 +286,98 @@
                 }
             };
 
-            // Load from Firebase v8
+            // Load all Firebase projects
+            const loadAllFirebaseProjects = async () => {
+                if (!db) {
+                    console.error('Firebase not initialized');
+                    return [];
+                }
+
+                try {
+                    const querySnapshot = await db.collection('projects')
+                        .orderBy('updatedAt', 'desc')
+                        .limit(50)
+                        .get();
+                    
+                    const projects = [];
+                    querySnapshot.forEach((doc) => {
+                        projects.push({
+                            id: doc.id,
+                            ...doc.data()
+                        });
+                    });
+                    
+                    return projects;
+                } catch (error) {
+                    console.error('Error loading Firebase projects:', error);
+                    return [];
+                }
+            };
+
+            // Open Firebase projects modal
+            const openFirebaseProjects = async () => {
+                setShowOpenFirebaseModal(true);
+                const projects = await loadAllFirebaseProjects();
+                setFirebaseProjects(projects);
+            };
+
+            // Load Firebase project
+            const loadFirebaseProject = async (project) => {
+                // Unsubscribe from current Firebase project if any
+                if (unsubscribeRef.current) {
+                    unsubscribeRef.current();
+                    unsubscribeRef.current = null;
+                }
+
+                setCollectionName(project.collectionName || 'Languages');
+                setModes(project.modes || ['SPA', 'POR', 'ENG']);
+                
+                const newVariables = project.variables ? project.variables.map((v, index) => ({
+                    ...v,
+                    id: v.id || index.toString()
+                })) : [];
+                
+                setVariables(newVariables);
+                
+                setCurrentProject({
+                    ...project,
+                    isFirebase: true
+                });
+                
+                subscribeToProject(project.id);
+                setShowOpenFirebaseModal(false);
+                
+                alert(`Proyecto Firebase "${project.name}" cargado!`);
+            };
+
+            // Delete Firebase project
+            const deleteFirebaseProject = async (projectId) => {
+                if (!db) return;
+                
+                if (confirm('¿Estás seguro de eliminar este proyecto de Firebase? Esta acción no se puede deshacer.')) {
+                    try {
+                        await db.collection('projects').doc(projectId).delete();
+                        
+                        // Refresh the list
+                        const projects = await loadAllFirebaseProjects();
+                        setFirebaseProjects(projects);
+                        
+                        // If current project is deleted, clear it
+                        if (currentProject && currentProject.id === projectId) {
+                            setCurrentProject(null);
+                            if (unsubscribeRef.current) {
+                                unsubscribeRef.current();
+                                unsubscribeRef.current = null;
+                            }
+                        }
+                        
+                        alert('Proyecto eliminado de Firebase');
+                    } catch (error) {
+                        console.error('Error deleting project:', error);
+                        alert('Error eliminando proyecto: ' + error.message);
+                    }
+                }
+            };
             const loadFromFirebase = async (projectId) => {
                 if (!db) {
                     console.error('Firebase not initialized');
@@ -1024,154 +1116,164 @@
                     <div className="max-w-7xl mx-auto">
                         {/* Header */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-4">
-                                    <input
-                                        type="text"
-                                        value={collectionName}
-                                        onChange={(e) => setCollectionName(e.target.value)}
-                                        className="text-2xl font-semibold text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1"
-                                    />
-                                    {currentProject && (
-                                        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
-                                            currentProject.isFirebase 
-                                                ? 'bg-green-50 text-green-700 border border-green-200' 
-                                                : 'bg-blue-50 text-blue-700'
-                                        }`}>
-                                            <span>{currentProject.isFirebase ? '🌐' : (currentProject.type === 'template' ? '📋' : '💾')}</span>
-                                            <span>
-                                                {currentProject.isFirebase ? 'Firebase:' : 'Editando:'} <strong>{currentProject.name}</strong>
+                            {/* Title Row */}
+                            <div className="flex items-center gap-4 mb-6">
+                                <input
+                                    type="text"
+                                    value={collectionName}
+                                    onChange={(e) => setCollectionName(e.target.value)}
+                                    className="text-2xl font-semibold text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1"
+                                />
+                                {currentProject && (
+                                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
+                                        currentProject.isFirebase 
+                                            ? 'bg-green-50 text-green-700 border border-green-200' 
+                                            : 'bg-blue-50 text-blue-700'
+                                    }`}>
+                                        <span>{currentProject.isFirebase ? '🌐' : (currentProject.type === 'template' ? '📋' : '💾')}</span>
+                                        <span>
+                                            {currentProject.isFirebase ? 'Firebase:' : 'Editando:'} <strong>{currentProject.name}</strong>
+                                        </span>
+                                        {currentProject.isFirebase && lastSaved && (
+                                            <span className="text-xs opacity-75">
+                                                • {lastSaved}
                                             </span>
-                                            {currentProject.isFirebase && lastSaved && (
-                                                <span className="text-xs opacity-75">
-                                                    • {lastSaved}
-                                                </span>
-                                            )}
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Toolbar Row */}
+                            <div className="flex gap-2 flex-wrap">
+                                {/* Abrir Local */}
+                                <button
+                                    onClick={() => setShowOpenModal(true)}
+                                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                >
+                                    <FolderOpen size={16} />
+                                    Abrir Local
+                                </button>
+
+                                {/* Abrir Firebase */}
+                                <button
+                                    onClick={openFirebaseProjects}
+                                    className="flex items-center gap-2 px-3 py-2 text-sm text-green-600 border border-green-300 rounded-md hover:bg-green-50 transition-colors"
+                                >
+                                    <Cloud size={16} />
+                                    Abrir Firebase
+                                </button>
+
+                                {/* Guardar */}
+                                <button
+                                    onClick={currentProject?.isFirebase ? saveCurrentProject : (currentProject ? saveCurrentProject : () => setShowProjectModal(true))}
+                                    className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
+                                        currentProject?.isFirebase
+                                            ? 'bg-green-600 text-white hover:bg-green-700' 
+                                            : (currentProject 
+                                                ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                                : 'bg-gray-600 text-white hover:bg-gray-700')
+                                    }`}
+                                    title={currentProject?.isFirebase 
+                                        ? 'Proyecto sincronizado automáticamente' 
+                                        : (currentProject ? `Guardar cambios en "${currentProject.name}"` : 'Guardar como nuevo proyecto local')}
+                                >
+                                    <Save size={16} />
+                                    {currentProject?.isFirebase 
+                                        ? 'Sincronizado'
+                                        : (currentProject ? 'Guardar' : 'Guardar Local')}
+                                </button>
+
+                                {/* Guardar en Firebase */}
+                                <button
+                                    onClick={() => setShowProjectModal(true)}
+                                    className="flex items-center gap-2 px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                    title="Guardar en Firebase (sincronización en tiempo real)"
+                                >
+                                    <Cloud size={16} />
+                                    Guardar Firebase
+                                </button>
+
+                                {/* Compartir */}
+                                <button
+                                    onClick={shareProject}
+                                    className="flex items-center gap-2 px-3 py-2 text-sm bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
+                                >
+                                    <Share size={16} />
+                                    Compartir
+                                </button>
+
+                                {/* Template */}
+                                <button
+                                    onClick={() => setShowTemplateModal(true)}
+                                    className="flex items-center gap-2 px-3 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                                >
+                                    <Settings size={16} />
+                                    Template
+                                </button>
+
+                                {/* Abrir Template */}
+                                <button
+                                    onClick={() => setShowOpenTemplateModal(true)}
+                                    className="flex items-center gap-2 px-3 py-2 text-sm text-purple-600 border border-purple-300 rounded-md hover:bg-purple-50 transition-colors"
+                                >
+                                    <Settings size={16} />
+                                    Abrir Template
+                                </button>
+
+                                {/* Import Dropdown */}
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowImportMenu(!showImportMenu)}
+                                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                    >
+                                        <Upload size={16} />
+                                        Import
+                                        <ChevronDown size={14} />
+                                    </button>
+                                    {showImportMenu && (
+                                        <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                                            <button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                📄 Import JSON
+                                            </button>
+                                            <button
+                                                onClick={() => excelInputRef.current?.click()}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                📊 Import Excel/Numbers
+                                            </button>
                                         </div>
                                     )}
                                 </div>
-                                
-                                {/* TOOLBAR WITH FIREBASE SUPPORT */}
-                                <div className="flex gap-2 flex-wrap">
-                                    {/* Abrir (guardados locales) */}
+
+                                {/* Export Dropdown */}
+                                <div className="relative">
                                     <button
-                                        onClick={() => setShowOpenModal(true)}
-                                        className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                        onClick={() => setShowExportMenu(!showExportMenu)}
+                                        className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
                                     >
-                                        <FolderOpen size={16} />
-                                        Abrir Local
+                                        <Download size={16} />
+                                        Export
+                                        <ChevronDown size={14} />
                                     </button>
-
-                                    {/* Guardar */}
-                                    <button
-                                        onClick={currentProject?.isFirebase ? saveCurrentProject : (currentProject ? saveCurrentProject : () => setShowProjectModal(true))}
-                                        className={`flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
-                                            currentProject?.isFirebase
-                                                ? 'bg-green-600 text-white hover:bg-green-700' 
-                                                : (currentProject 
-                                                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                                                    : 'bg-gray-600 text-white hover:bg-gray-700')
-                                        }`}
-                                        title={currentProject?.isFirebase 
-                                            ? 'Proyecto sincronizado automáticamente' 
-                                            : (currentProject ? `Guardar cambios en "${currentProject.name}"` : 'Guardar como nuevo proyecto local')}
-                                    >
-                                        <Save size={16} />
-                                        {currentProject?.isFirebase 
-                                            ? '✓ Sincronizado'
-                                            : (currentProject ? 'Guardar' : '💾 Guardar Local')}
-                                    </button>
-
-                                    {/* Save to Firebase */}
-                                    <button
-                                        onClick={() => setShowProjectModal(true)}
-                                        className="flex items-center gap-2 px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                                        title="Guardar en Firebase (sincronización en tiempo real)"
-                                    >
-                                        <Cloud size={16} />
-                                        🌐 Firebase
-                                    </button>
-
-                                    {/* Share Button */}
-                                    <button
-                                        onClick={shareProject}
-                                        className="flex items-center gap-2 px-3 py-2 text-sm bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
-                                    >
-                                        <Share size={16} />
-                                        🔗 Compartir
-                                    </button>
-
-                                    {/* Save Template */}
-                                    <button
-                                        onClick={() => setShowTemplateModal(true)}
-                                        className="flex items-center gap-2 px-3 py-2 text-sm bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-                                    >
-                                        📋 Template
-                                    </button>
-
-                                    {/* Open Template */}
-                                    <button
-                                        onClick={() => setShowOpenTemplateModal(true)}
-                                        className="flex items-center gap-2 px-3 py-2 text-sm text-purple-600 border border-purple-300 rounded-md hover:bg-purple-50 transition-colors"
-                                    >
-                                        📋 Abrir Template
-                                    </button>
-
-                                    {/* Import Dropdown */}
-                                    <div className="relative">
-                                        <button
-                                            onClick={() => setShowImportMenu(!showImportMenu)}
-                                            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                                        >
-                                            <Upload size={16} />
-                                            Import
-                                            <ChevronDown size={14} />
-                                        </button>
-                                        {showImportMenu && (
-                                            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
-                                                <button
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                                >
-                                                    📄 Import JSON
-                                                </button>
-                                                <button
-                                                    onClick={() => excelInputRef.current?.click()}
-                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                                >
-                                                    📊 Import Excel/Numbers
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Export Dropdown */}
-                                    <div className="relative">
-                                        <button
-                                            onClick={() => setShowExportMenu(!showExportMenu)}
-                                            className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
-                                        >
-                                            <Download size={16} />
-                                            Export
-                                            <ChevronDown size={14} />
-                                        </button>
-                                        {showExportMenu && (
-                                            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
-                                                <button
-                                                    onClick={exportJSON}
-                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                                >
-                                                    📄 Export JSON
-                                                </button>
-                                                <button
-                                                    onClick={exportExcel}
-                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                                >
-                                                    📊 Export Excel/Numbers
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
+                                    {showExportMenu && (
+                                        <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                                            <button
+                                                onClick={exportJSON}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                📄 Export JSON
+                                            </button>
+                                            <button
+                                                onClick={exportExcel}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                📊 Export Excel/Numbers
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             
@@ -1324,8 +1426,112 @@
                         </div>
 
                         <div className="mt-6 text-center text-sm text-gray-500">
-                            Editor de Variables de Texto para Figma v6.0 - Firebase Edition v8
+                            Editor de Variables de Texto para Figma v6.1 - Firebase con Navegación
                         </div>
+
+                        {/* Open Firebase Projects Modal */}
+                        {showOpenFirebaseModal && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                                <div className="bg-white rounded-lg p-6 w-[600px] mx-4 max-h-[80vh] overflow-y-auto">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold text-gray-900">🌐 Proyectos en Firebase</h3>
+                                        <button
+                                            onClick={() => setShowOpenFirebaseModal(false)}
+                                            className="text-gray-400 hover:text-gray-600"
+                                        >
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                    
+                                    {firebaseProjects.length === 0 ? (
+                                        <div className="text-center py-8">
+                                            <div className="text-4xl mb-4">🌐</div>
+                                            <p className="text-gray-500 mb-4">No hay proyectos en Firebase</p>
+                                            <button
+                                                onClick={() => {
+                                                    setShowOpenFirebaseModal(false);
+                                                    setShowProjectModal(true);
+                                                }}
+                                                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                            >
+                                                <Cloud size={16} className="inline mr-2" />
+                                                Crear primer proyecto Firebase
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {firebaseProjects.map(project => (
+                                                <div key={project.id} className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-green-600">🌐</span>
+                                                            <span className="font-medium text-gray-900">{project.name}</span>
+                                                        </div>
+                                                        <div className="text-sm text-gray-600">
+                                                            <span className="mr-4">
+                                                                📊 {project.variables?.length || 0} variables
+                                                            </span>
+                                                            <span className="mr-4">
+                                                                🗣️ {project.modes?.length || 0} idiomas
+                                                            </span>
+                                                            {project.updatedAt && (
+                                                                <span>
+                                                                    📅 {new Date(project.updatedAt).toLocaleDateString('es-ES', {
+                                                                        day: '2-digit',
+                                                                        month: '2-digit',
+                                                                        year: 'numeric',
+                                                                        hour: '2-digit',
+                                                                        minute: '2-digit'
+                                                                    })}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2 ml-4">
+                                                        <button
+                                                            onClick={() => loadFirebaseProject(project)}
+                                                            className="px-3 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                                        >
+                                                            Abrir
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteFirebaseProject(project.id)}
+                                                            className="px-3 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
+                                                        >
+                                                            Eliminar
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    
+                                    <div className="mt-6 pt-4 border-t border-gray-200">
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={() => {
+                                                    setShowOpenFirebaseModal(false);
+                                                    setShowProjectModal(true);
+                                                }}
+                                                className="flex items-center gap-2 px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                            >
+                                                <Cloud size={16} />
+                                                Nuevo Proyecto Firebase
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    const projects = await loadAllFirebaseProjects();
+                                                    setFirebaseProjects(projects);
+                                                }}
+                                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                                            >
+                                                🔄 Actualizar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Firebase Share Modal */}
                         {showShareModal && (
